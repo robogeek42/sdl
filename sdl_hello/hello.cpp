@@ -141,13 +141,18 @@ int main( int argc, char* args[] )
 
 void close() 
 {
+    printf("Free Ship\n"); fflush(stdout);
     //Deallocate surface
     SDL_FreeSurface( gShip );
     gShip = NULL;
 
+    printf("Destroy window\n"); fflush(stdout);
     //Destroy window
     SDL_DestroyWindow( gWindow );
 
+    printf("SQL_Quit\n"); fflush(stdout);
     //Quit SDL subsystems
     SDL_Quit();
+
+    printf("Done\n"); fflush(stdout);
 }
