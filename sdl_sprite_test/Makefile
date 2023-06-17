@@ -5,7 +5,7 @@ CPPFLAGS=-g -Wall -I/usr/include/SDL2
 LDFLAGS=-g
 LDLIBS=-lSDL2 -lSDL2_image
 
-SRCS=Sprite.cpp sdl_sprite_test.cpp
+SRCS=MySprite.cpp sdl_sprite_test.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 all: sdl_sprite_test
@@ -13,9 +13,9 @@ all: sdl_sprite_test
 sdl_sprite_test: $(OBJS)
 	$(CXX) $(LDFLAGS) -o sdl_sprite_test $(OBJS) $(LDLIBS)
 
-sdl_sprite_test.o: sdl_sprite_test.cpp Sprite.cpp
+sdl_sprite_test.o: sdl_sprite_test.cpp MySprite.cpp
 
-Sprite.o: Sprite.h Sprite.cpp
+MySprite.o: MySprite.h MySprite.cpp
 
 clean:
 	$(RM) $(OBJS)

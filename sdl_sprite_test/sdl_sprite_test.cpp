@@ -2,7 +2,7 @@
 #include <SDL_image.h>
 #include <stdio.h>
 #include <string>
-#include "Sprite.h"
+#include "MySprite.h"
 
 //Screen dimension constants
 const int SCREEN_WIDTH = 1280;
@@ -10,12 +10,6 @@ const int SCREEN_HEIGHT = 720;
 
 //Starts up SDL and creates window
 bool init();
-
-//Loads media
-bool loadMedia();
-
-//Loads individual image as texture
-SDL_Texture* loadTexture( std::string path );
 
 //Frees media and shuts down SDL
 void close();
@@ -26,14 +20,15 @@ SDL_Window* gWindow = NULL;
 //The window renderer
 SDL_Renderer* gRenderer = NULL;
 
-// Imge to draw
-SDL_Texture* gShip = NULL;
+// Imge to create a sprite from
 std::string gImagePath = "../resources/textures/UFO_1_Enlarged.png";
-int gShipWidth, gShipHeight;
+
 
 //Rendered texture
 SDL_Texture* gTextTexture;
 int gTextTextureWidth, gTextTextureHeight;
+
+MySprite* s1;
 
 bool init() 
 {
@@ -87,51 +82,7 @@ bool init()
     return true;
 }
 
-bool loadMedia()
-{
-    bool success = true;
 
-	//Load PNG texture
-	gShip = loadTexture( gImagePath );
-	if( gShip == NULL )
-	{
-		printf( "Failed to load texture image!\n" );
-		success = false;
-	}
-    return success;
-}
-
-
-SDL_Texture* loadTexture( std::string path )
-{
-	//The final texture
-	SDL_Texture* newTexture = NULL;
-
-	//Load image at specified path
-	SDL_Surface* loadedSurface = IMG_Load( path.c_str() );
-	if( loadedSurface == NULL )
-	{
-		printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError() );
-	}
-	else
-	{
-		//Create texture from surface pixels
-        newTexture = SDL_CreateTextureFromSurface( gRenderer, loadedSurface );
-		if( newTexture == NULL )
-		{
-			printf( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
-		}
-
-		//Get rid of old loaded surface
-		SDL_FreeSurface( loadedSurface );
-
-        if (SDL_QueryTexture(newTexture,NULL, NULL, &gShipWidth, &gShipHeight)!=0) {
-            printf("Unable to get Texture Size info\n");
-        }
-	}
-
-	return newTexture;
-}
 
 int main( int argc, char* args[] )
 {
@@ -142,65 +93,52 @@ int main( int argc, char* args[] )
     }
     else
     {
-        //Load media
-        if( !loadMedia() )
-        {
-            printf( "Failed to load media!\n" );
-        }
-        else
-        {
-            SDL_Event e; 
-            bool quit = false; 
-            SDL_Rect shipDest = {100,100,gShipWidth,gShipHeight};
+        SDL_Event e; 
+        bool quit = false; 
+        s1 = new MySprite(gRenderer, gImagePath);
+        s1->setPos(100,100);
 
-            Sprite* s1 = new Sprite("sprites/samus_normal_run.bmp",10,60);
-
-            while( quit == false )
+        while( quit == false )
+        { 
+            while( SDL_PollEvent( &e ) )
             { 
-                while( SDL_PollEvent( &e ) )
-                { 
-                    if( e.type == SDL_QUIT )
-                    {
-                        quit = true; 
-                    } 
-                    else if (e.type == SDL_KEYDOWN) 
-                    {
-                        //printf("Key 0x%X\n",e.key.keysym.sym);
-                        switch (e.key.keysym.sym)
-                        {
-                            case SDLK_UP:
-                            break;
-                            case SDLK_DOWN:
-                            break;
-                            case SDLK_LEFT:
-                            break;
-                            case SDLK_RIGHT:
-                            break;
-                            case SDLK_q:
-                            quit = true;
-                            break;
-                            default:
-                            break;
-                        }
-                    }
-
+                if( e.type == SDL_QUIT )
+                {
+                    quit = true; 
                 } 
+                else if (e.type == SDL_KEYDOWN) 
+                {
+                    //printf("Key 0x%X\n",e.key.keysym.sym);
+                    switch (e.key.keysym.sym)
+                    {
+                        case SDLK_UP:
+                        break;
+                        case SDLK_DOWN:
+                        break;
+                        case SDLK_LEFT:
+                        break;
+                        case SDLK_RIGHT:
+                        break;
+                        case SDLK_q:
+                        quit = true;
+                        break;
+                        default:
+                        break;
+                    }
+                }
 
-				//Initialize renderer color
-				SDL_SetRenderDrawColor( gRenderer, 0x40, 0x00, 0x40, 0xFF );
+            } 
 
-                //Clear screen
-                SDL_RenderClear( gRenderer );
+            //Initialize renderer color
+            SDL_SetRenderDrawColor( gRenderer, 0x40, 0x00, 0x40, 0xFF );
 
-                //Render texture to screen
-				SDL_SetRenderDrawColor( gRenderer, 0x40, 0x00, 0x40, 0xFF );
-                SDL_RenderCopy( gRenderer, gShip, NULL, &shipDest );
+            //Clear screen
+            SDL_RenderClear( gRenderer );
 
+            s1->draw();
 
-
-                //Update screen
-                SDL_RenderPresent( gRenderer );
-            }
+            //Update screen
+            SDL_RenderPresent( gRenderer );
         }
     }
     close();
@@ -210,9 +148,8 @@ int main( int argc, char* args[] )
 
 void close() 
 {
-    //Deallocate surface
-    SDL_DestroyTexture( gShip );
-    gShip = NULL;
+    // delete sprite
+    s1->destroy();
 
     //Destroy window
     SDL_DestroyRenderer( gRenderer );
