@@ -28,7 +28,12 @@ std::string gImagePath = "../resources/textures/UFO_1_Enlarged.png";
 SDL_Texture* gTextTexture;
 int gTextTextureWidth, gTextTextureHeight;
 
-MySprite* s1;
+MySprite *s1, *s2;
+#define NUM_PARTICLES 30
+MySprite *particles[NUM_PARTICLES];
+
+void addParticle(int px, int py, int vx, int vy);
+void updateAndDrawParticles();
 
 bool init() 
 {
@@ -95,8 +100,16 @@ int main( int argc, char* args[] )
     {
         SDL_Event e; 
         bool quit = false; 
-        s1 = new MySprite(gRenderer, gImagePath);
+        s1 = new MySprite(gRenderer, gImagePath, 120);
         s1->setPos(100,100);
+        s1->setVel(2,0);
+        s1->setWrap(true);
+        SDL_Color boxcol = {255, 50, 50, 255};
+        s2 = new MySprite(gRenderer, 75, 75, &boxcol, 30);
+        s2->setBorderColor(255,255,100);
+        s2->setPos(200,200);
+        s2->setVel(-3,2);
+        s2->setWrap(true);
 
         while( quit == false )
         { 
@@ -135,7 +148,17 @@ int main( int argc, char* args[] )
             //Clear screen
             SDL_RenderClear( gRenderer );
 
+            s1->update();
             s1->draw();
+            s2->update();
+            s2->draw();
+
+            int mouseX, mouseY; Uint32 mouseButtonState;
+            mouseButtonState = SDL_GetMouseState(&mouseX, &mouseY);
+            if (SDL_BUTTON(SDL_BUTTON_LEFT) & mouseButtonState) {
+                addParticle(mouseX, mouseY, rand()%10-5, rand()%10-5);
+            }
+            updateAndDrawParticles();
 
             //Update screen
             SDL_RenderPresent( gRenderer );
@@ -160,4 +183,27 @@ void close()
     //Quit SDL subsystems
     IMG_Quit();
     SDL_Quit();
+}
+
+void addParticle(int px, int py, int vx, int vy) {
+    for(int i=0; i<NUM_PARTICLES; i++) {
+        if (particles[i] == NULL) {
+            particles[i] = new MySprite(gRenderer, 20, 20, rand()%255, rand()%255, rand()%255, 255, 30);
+            particles[i]->setPos(px, py);
+            particles[i]->setVel(vx, vy);
+            particles[i]->setLifetime(2000);
+            break;
+        }
+    }
+}
+
+void updateAndDrawParticles() {
+    for(int i=0; i<NUM_PARTICLES; i++) {
+        if (!particles[i]) continue;
+        if (!particles[i]->update()) {
+            delete particles[i]; particles[i] = NULL;
+        } else {
+            particles[i]->draw();
+        }
+    }
 }
