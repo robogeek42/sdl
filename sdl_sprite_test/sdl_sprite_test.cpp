@@ -29,7 +29,7 @@ SDL_Texture* gTextTexture;
 int gTextTextureWidth, gTextTextureHeight;
 
 MySprite *s1, *s2;
-#define NUM_PARTICLES 30
+#define NUM_PARTICLES 200
 MySprite *particles[NUM_PARTICLES];
 
 void addParticle(int px, int py, int vx, int vy);
@@ -70,6 +70,13 @@ bool init()
 			}
 			else
 			{
+                // SDL_RendererInfo info;
+                // SDL_GetRendererInfo(gRenderer, &info);
+                // printf("Renderer\n\tFlags 0x%X\n\tnum formats %d\n",info.flags, info.num_texture_formats);
+                // for (int n = 0; n < info.num_texture_formats; n++) {
+                //     printf("\t\t0x%X\n",info.texture_formats[n]);
+                // }
+                // printf("\n");
 				//Initialize renderer color
 				SDL_SetRenderDrawColor( gRenderer, 0x40, 0x00, 0x40, 0xFF );
 
@@ -104,8 +111,8 @@ int main( int argc, char* args[] )
         s1->setPos(100,100);
         s1->setVel(2,0);
         s1->setWrap(true);
-        SDL_Color boxcol = {255, 50, 50, 255};
-        s2 = new MySprite(gRenderer, 75, 75, &boxcol, 30);
+        SDL_Color boxcol = {255, 50, 50, 100};
+        s2 = new MySprite(gRenderer, MYSPRITE_SHAPE_RECT, 75, 75, &boxcol, 30);
         s2->setBorderColor(255,255,100);
         s2->setPos(200,200);
         s2->setVel(-3,2);
@@ -188,10 +195,11 @@ void close()
 void addParticle(int px, int py, int vx, int vy) {
     for(int i=0; i<NUM_PARTICLES; i++) {
         if (particles[i] == NULL) {
-            particles[i] = new MySprite(gRenderer, 20, 20, rand()%255, rand()%255, rand()%255, 255, 30);
+            particles[i] = new MySprite(gRenderer, MYSPRITE_SHAPE_RECT, 10, 10, rand()%255, rand()%255, rand()%255, 255, 30);
             particles[i]->setPos(px, py);
             particles[i]->setVel(vx, vy);
-            particles[i]->setLifetime(2000);
+            particles[i]->setLifetime(3000, true);
+            particles[i]->setGravity(true);
             break;
         }
     }

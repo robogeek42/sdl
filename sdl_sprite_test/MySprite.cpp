@@ -3,7 +3,6 @@
 MySprite::MySprite() {
     sprite = NULL;
     loaded = false;
-    dead = false;
     wrap = false;
     sprite_width = 0;
     sprite_height = 0;
@@ -13,7 +12,11 @@ MySprite::MySprite() {
     pos = {0,0,0,0};
     vx = 0.0; vy = 0.0;
     x = 0.0; y = 0.0;
+    dead = false;
+    gravity = false;
     lifetime = 0; // stay alive
+    lifetimeFade = false;
+    fadeValue = 0.0;
 }
 
 MySprite::~MySprite() {
@@ -26,6 +29,7 @@ MySprite* MySprite::destroy() {
     return this;
 }
 
+// Image type
 MySprite::MySprite(SDL_Renderer *_r, std::string path) : MySprite(_r, path, 30) {}
 MySprite::MySprite(SDL_Renderer *_r, std::string path, int fps) {
     //printf("Create Image Sprite from single image\n");
@@ -40,9 +44,17 @@ MySprite::MySprite(SDL_Renderer *_r, std::string path, int fps) {
     sprite = loadTexture(path);
     if (this->sprite) this->loaded = true;  
     this->dead = false;  
+    this->gravity = false;
+    this->lifetime = 0;
+    this->lifetimeFade = false;
+    this->fadeValue = 0.0;
 }
 
-MySprite::MySprite(SDL_Renderer *_r, int w, int h, SDL_Color *col, int fps) {
+// Shape type
+MySprite::MySprite(SDL_Renderer *_r, MYSPRITE_SHAPE _shape, int w, int h, SDL_Color *col, int fps) 
+: MySprite(_r, _shape, w, h, col->r, col->g, col->b, col->a, fps) {}
+
+MySprite::MySprite(SDL_Renderer *_r, MYSPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, int fps) {
     //printf("Create Rect Sprite\n");
     this->renderer = _r;
     SDL_GetRendererOutputSize(this->renderer, &(this->win_width), &(this->win_height));
@@ -50,28 +62,8 @@ MySprite::MySprite(SDL_Renderer *_r, int w, int h, SDL_Color *col, int fps) {
     this->frame_update_time_ms = (int)(1000.0 / (float)fps);
     this->last_update_tick = this->created_tick = SDL_GetTicks();
 
-    this->type = MYSPRITE_TYPE_RECT;
-    this->sprite_width = w;
-    this->sprite_height = h;
-    this->pos.w = w;
-    this->pos.h = h;
-    this->col.r = this->bcol.r = col->r;
-    this->col.g = this->bcol.g = col->g;
-    this->col.b = this->bcol.b = col->b;
-    this->col.a = this->bcol.a = col->a;
-
-    this->dead = false;  
-}
-
-MySprite::MySprite(SDL_Renderer *_r, int w, int h, int r, int g, int b, int a, int fps) {
-    //printf("Create Rect Sprite\n");
-    this->renderer = _r;
-    SDL_GetRendererOutputSize(this->renderer, &(this->win_width), &(this->win_height));
-    
-    this->frame_update_time_ms = (int)(1000.0 / (float)fps);
-    this->last_update_tick = this->created_tick = SDL_GetTicks();
-
-    this->type = MYSPRITE_TYPE_RECT;
+    this->type = MYSPRITE_TYPE_SHAPE;
+    this->shape = _shape;
     this->sprite_width = w;
     this->sprite_height = h;
     this->pos.w = w;
@@ -82,7 +74,10 @@ MySprite::MySprite(SDL_Renderer *_r, int w, int h, int r, int g, int b, int a, i
     this->col.a = this->bcol.a = a;
 
     this->dead = false;  
-
+    this->gravity = false;
+    this->lifetime = 0;
+    this->lifetimeFade = false;
+    this->fadeValue = 1.0;
 }
 
 //Loads individual image as texture
@@ -132,12 +127,22 @@ bool MySprite::draw() {
         SDL_RenderCopy( renderer, sprite, NULL, &pos );
         return true;
     }
-    if (type==MYSPRITE_TYPE_RECT) 
+    if (type==MYSPRITE_TYPE_SHAPE) 
     {
-        SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a );
-        SDL_RenderFillRect(renderer, &pos);
-        SDL_SetRenderDrawColor(renderer, bcol.r, bcol.g, bcol.b, bcol.a );
-        SDL_RenderDrawRect(renderer, &pos);
+        switch (shape) {
+            case MYSPRITE_SHAPE_RECT: 
+            {
+                SDL_SetRenderDrawColor(renderer, col.r * fadeValue, col.g * fadeValue, col.b * fadeValue, col.a *fadeValue);
+                SDL_RenderFillRect(renderer, &pos);
+                SDL_SetRenderDrawColor(renderer, bcol.r * fadeValue, bcol.g * fadeValue, bcol.b * fadeValue, bcol.a *fadeValue );
+                SDL_RenderDrawRect(renderer, &pos);
+                break;
+            }
+            case MYSPRITE_SHAPE_CIRCLE:
+            default:
+                printf("Shape Type unknown\n");
+            break;
+        }
         return true;
     } 
     
@@ -160,8 +165,15 @@ void MySprite::setVel(float velx, float vely) {
     vy = vely;
 }
 
+void MySprite::setGravity(bool b) {
+    gravity = b;
+    return;
+}
+
 bool MySprite::update() {
     if (dead) return false;
+
+    // kill this sprite after lifetime ms
     if (lifetime != 0 && SDL_TICKS_PASSED(SDL_GetTicks(), created_tick + lifetime)) {
         dead = true;
         return false;
@@ -172,6 +184,20 @@ bool MySprite::update() {
     }
     last_update_tick = SDL_GetTicks();
 
+    // fade when 1 second remains
+    if (lifetimeFade && lifetime != 0)
+    { 
+        int ticks_fading_starts = created_tick + std::max((int)0, (int)(lifetime - 1000));
+        if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks_fading_starts)) {
+            int fade = 255 - (SDL_GetTicks() - ticks_fading_starts)/4;   
+            fadeValue = (float)fade / 255.0;
+        }
+    }
+
+    // gravity
+    if (gravity == true) {
+        vy += (4.0 * frame_update_time_ms)/1000.0;
+    }
 
     x += vx; 
     y += vy;
@@ -207,6 +233,7 @@ void MySprite::setBorderColor(int r, int g, int b, int a)
     bcol.a = a;
 }
 
-void MySprite::setLifetime(Uint32 ticks) {
+void MySprite::setLifetime(Uint32 ticks, bool fade) {
     lifetime = ticks; // measured in ms
+    lifetimeFade = fade;
 }
