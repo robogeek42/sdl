@@ -1,1 +1,5 @@
 build/
+*/*.o
+sdl_hello/sdl_hello
+sdl_sprite_test/sdl_sprite_test
+SDL1_sdl_sprite_class/
