@@ -8,6 +8,7 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL2_gfxPrimitives.h>
 
 typedef enum {
     MYSPRITE_TYPE_IMAGE,

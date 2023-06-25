@@ -195,7 +195,7 @@ void close()
 void addParticle(int px, int py, int vx, int vy) {
     for(int i=0; i<NUM_PARTICLES; i++) {
         if (particles[i] == NULL) {
-            particles[i] = new MySprite(gRenderer, MYSPRITE_SHAPE_RECT, 10, 10, rand()%255, rand()%255, rand()%255, 255, 30);
+            particles[i] = new MySprite(gRenderer, MYSPRITE_SHAPE_CIRCLE, 20, 20, rand()%255, rand()%255, rand()%255, 255, 30);
             particles[i]->setPos(px, py);
             particles[i]->setVel(vx, vy);
             particles[i]->setLifetime(3000, true);

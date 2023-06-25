@@ -78,6 +78,11 @@ MySprite::MySprite(SDL_Renderer *_r, MYSPRITE_SHAPE _shape, int w, int h, int r,
     this->lifetime = 0;
     this->lifetimeFade = false;
     this->fadeValue = 1.0;
+
+    if (!SDL_SetRenderDrawBlendMode(this->renderer, SDL_BLENDMODE_BLEND)) {
+        printf("Failed to set renderer blend mode\n");
+    }
+
 }
 
 //Loads individual image as texture
@@ -110,6 +115,7 @@ SDL_Texture* MySprite::loadTexture( std::string path )
         printf("Sprite loaded %dx%d\n", sprite_width, sprite_height);
         pos.w = sprite_width;
         pos.h = sprite_height;
+
 	}
 
 	return newTexture;
@@ -132,13 +138,17 @@ bool MySprite::draw() {
         switch (shape) {
             case MYSPRITE_SHAPE_RECT: 
             {
-                SDL_SetRenderDrawColor(renderer, col.r * fadeValue, col.g * fadeValue, col.b * fadeValue, col.a *fadeValue);
+                SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a *fadeValue);
                 SDL_RenderFillRect(renderer, &pos);
-                SDL_SetRenderDrawColor(renderer, bcol.r * fadeValue, bcol.g * fadeValue, bcol.b * fadeValue, bcol.a *fadeValue );
+                SDL_SetRenderDrawColor(renderer, bcol.r, bcol.g, bcol.b, bcol.a *fadeValue );
                 SDL_RenderDrawRect(renderer, &pos);
                 break;
             }
             case MYSPRITE_SHAPE_CIRCLE:
+            {
+                filledCircleRGBA(renderer, pos.x, pos.y, pos.w/2, col.r, col.g, col.b, col.a * fadeValue);
+                break;
+            }
             default:
                 printf("Shape Type unknown\n");
             break;
