@@ -107,16 +107,25 @@ int main( int argc, char* args[] )
     {
         SDL_Event e; 
         bool quit = false; 
-        s1 = new Sprite(gRenderer, gImagePath, 120);
+
+        Sprite::setRenderer(gRenderer);
+
+        // Simple IMAGE sprite
+        s1 = new Sprite(gImagePath, 120);
         s1->setPos(100,100);
         s1->setVel(2,0);
         s1->setWrap(true);
-        SDL_Color boxcol = {255, 50, 50, 100};
-        s2 = new Sprite(gRenderer, SPRITE_SHAPE_RECT, 75, 75, &boxcol, 30);
+
+        // Sprite which has a shape but no image
+        SDL_Color boxcol = {255, 50, 50, 255};
+        s2 = new Sprite(SPRITE_SHAPE_RECT, 75, 75, &boxcol, 30);
         s2->setBorderColor(255,255,100);
         s2->setPos(200,200);
         s2->setVel(-3,2);
         s2->setWrap(true);
+        s2->setLifetime(0, false);
+
+
 
         while( quit == false )
         { 
@@ -195,7 +204,7 @@ void close()
 void addParticle(int px, int py, int vx, int vy) {
     for(int i=0; i<NUM_PARTICLES; i++) {
         if (particles[i] == NULL) {
-            particles[i] = new Sprite(gRenderer, SPRITE_SHAPE_CIRCLE, 20, 20, rand()%255, rand()%255, rand()%255, 255, 30);
+            particles[i] = new Sprite(SPRITE_SHAPE_CIRCLE, 20, 20, rand()%255, rand()%255, rand()%255, 255, 30);
             particles[i]->setPos(px, py);
             particles[i]->setVel(vx, vy);
             particles[i]->setLifetime(3000, true);

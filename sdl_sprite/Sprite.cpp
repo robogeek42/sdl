@@ -1,13 +1,21 @@
 #include "Sprite.h"
 
+// initialise static members
+SDL_Renderer* Sprite::renderer = NULL;
+int Sprite::win_width = 0;
+int Sprite::win_height = 0;
+SDL_Texture* Sprite::sheet = NULL;
+bool Sprite::sheet_loaded = false;
+int Sprite::sheet_width = 0;
+int Sprite::sheet_height = 0;
+int Sprite::num_ssprites = 0;
+
 Sprite::Sprite() {
     sprite = NULL;
     loaded = false;
     wrap = false;
     sprite_width = 0;
     sprite_height = 0;
-    win_width = 0;
-    win_height = 0;
     run = false;
     pos = {0,0,0,0};
     vx = 0.0; vy = 0.0;
@@ -29,12 +37,15 @@ Sprite* Sprite::destroy() {
     return this;
 }
 
+void Sprite::setRenderer(SDL_Renderer *_renderer) {
+    renderer = _renderer;
+    SDL_GetRendererOutputSize(renderer, &win_width, &win_height);
+}
+
 // Image type
-Sprite::Sprite(SDL_Renderer *_r, std::string path) : Sprite(_r, path, 30) {}
-Sprite::Sprite(SDL_Renderer *_r, std::string path, int fps) {
+Sprite::Sprite(std::string path) : Sprite(path, 30) {}
+Sprite::Sprite(std::string path, int fps) {
     //printf("Create Image Sprite from single image\n");
-    this->renderer = _r;
-    SDL_GetRendererOutputSize(this->renderer, &(this->win_width), &(this->win_height));
     
     this->frame_update_time_ms = (int)(1000.0 / (float)fps);
     this->last_update_tick = this->created_tick = SDL_GetTicks();
@@ -51,14 +62,11 @@ Sprite::Sprite(SDL_Renderer *_r, std::string path, int fps) {
 }
 
 // Shape type
-Sprite::Sprite(SDL_Renderer *_r, SPRITE_SHAPE _shape, int w, int h, SDL_Color *col, int fps) 
-: Sprite(_r, _shape, w, h, col->r, col->g, col->b, col->a, fps) {}
+Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, SDL_Color *col, int fps) 
+: Sprite(_shape, w, h, col->r, col->g, col->b, col->a, fps) {}
 
-Sprite::Sprite(SDL_Renderer *_r, SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, int fps) {
+Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, int fps) {
     //printf("Create Rect Sprite\n");
-    this->renderer = _r;
-    SDL_GetRendererOutputSize(this->renderer, &(this->win_width), &(this->win_height));
-    
     this->frame_update_time_ms = (int)(1000.0 / (float)fps);
     this->last_update_tick = this->created_tick = SDL_GetTicks();
 
@@ -79,9 +87,9 @@ Sprite::Sprite(SDL_Renderer *_r, SPRITE_SHAPE _shape, int w, int h, int r, int g
     this->lifetimeFade = false;
     this->fadeValue = 1.0;
 
-    if (!SDL_SetRenderDrawBlendMode(this->renderer, SDL_BLENDMODE_BLEND)) {
-        printf("Failed to set renderer blend mode\n");
-    }
+    // if (!SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
+    //     printf("Failed to set renderer blend mode\n");
+    // }
 
 }
 
@@ -246,4 +254,37 @@ void Sprite::setBorderColor(int r, int g, int b, int a)
 void Sprite::setLifetime(Uint32 ticks, bool fade) {
     lifetime = ticks; // measured in ms
     lifetimeFade = fade;
+}
+
+bool Sprite::loadSheet( std::string path )
+{
+    bool retval = true;
+   	//Load image at specified path
+	SDL_Surface* loadedSurface = IMG_Load( path.c_str() );
+	if( loadedSurface == NULL )
+	{
+		printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError() );
+	}
+	else
+	{
+		//Create texture from surface pixels
+        sheet = SDL_CreateTextureFromSurface( renderer, loadedSurface );
+		if( sheet == NULL )
+		{
+			printf( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+            retval = false;
+		}
+
+		//Get rid of old loaded surface
+		SDL_FreeSurface( loadedSurface );
+
+        if (SDL_QueryTexture(sheet, NULL, NULL, &(sheet_width), &(sheet_height))!=0) {
+            printf("Unable to get Texture Size info\n");
+            retval = false;
+        } else {
+            printf("Sprite sheet loaded %dx%d\n", sheet_width, sheet_height);
+        }
+	}
+    sheet_loaded = retval;
+	return retval;
 }
