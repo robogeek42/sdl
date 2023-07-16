@@ -12,12 +12,15 @@
 
 typedef enum {
     SPRITE_TYPE_IMAGE,
-    SPRITE_TYPE_SHAPE
+    SPRITE_TYPE_SHAPE,
+    SPRITE_TYPE_SSHEET
 } SPRITE_TYPE;
 typedef enum {
     SPRITE_SHAPE_RECT,
     SPRITE_SHAPE_CIRCLE
 } SPRITE_SHAPE;
+
+#define MAX_ANIM_FRAMES 10
 
 class Sprite {
 public: 
@@ -31,17 +34,29 @@ public:
     Sprite(SPRITE_SHAPE _shape, int w, int h, SDL_Color *col);
     Sprite(SPRITE_SHAPE _shape, int w, int h, SDL_Color *col, int fps);
     Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, int fps);
+    // SPRITE_TYPE_SSHEET
+    Sprite(SDL_Rect *rect);
+    Sprite(SDL_Rect *rect, int fps);
+    
     bool draw();
+    bool update();
+
     void setWrap(bool val);
     void setPos(int x, int y);
     void setVel(float velx, float vely);
-    bool update();
     void setGravity(bool b);
+    void setLifetime(Uint32 ticks, bool fade);
 
     void setBorderColor(int r, int g, int b);
     void setBorderColor(int r, int g, int b, int a);
 
-    void setLifetime(Uint32 ticks, bool fade);
+    void setSpriteDestSize(int w, int h);
+    void setSpriteZoom(float zoom);
+
+    bool addAnimImage(std::string path);
+    bool addAnimSprite(SDL_Rect *ssrect);
+    void setAnimTime(Uint32 ms);
+
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
 
@@ -59,38 +74,37 @@ private:
     float vy;
     float x;
     float y;
-    SDL_Rect pos;
+    SDL_Rect pos;  // position and size of sprite (on screen)
     Uint32 last_update_tick;
     Uint32 frame_update_time_ms;
     Uint32 created_tick;
-    int sprite_width;
-    int sprite_height;
 
     // For type = Image
-    SDL_Texture* sprite;
+    SDL_Texture* sprite[MAX_ANIM_FRAMES];
 
     // For type = Shape
     SPRITE_SHAPE shape;
     SDL_Color col;    // fill color
     SDL_Color bcol;   // border
 
-    // For type = Animation
-    int maxFrames;
+    // For Animation
+    int num_frames;
+    int current_frame;
+    Uint32 anim_update_time_ms;
+    Uint32 last_anim_update_tick;
 
-    // simulate gravity down
-    bool gravity;
-    // lifetime in ticks. If == 0 then it does not die.
-    Uint32 lifetime;
-    bool lifetimeFade;
-    float fadeValue;
-
+    // For type Sprite Sheet
     static SDL_Texture *sheet;
+    SDL_Rect sspos[MAX_ANIM_FRAMES];
     static int sheet_width;
     static int sheet_height;
     static bool sheet_loaded;
-    #define MAX_SHEET_SPRITES 100
-    static SDL_Rect ssprites[MAX_SHEET_SPRITES];
-    static int num_ssprites;
+    
+    // simulate gravity down
+    bool gravity;
+    Uint32 lifetime; // lifetime in ticks. If == 0 then it does not die.
+    bool lifetimeFade;
+    float fadeValue;
 
     SDL_Texture* loadTexture( std::string path );
     

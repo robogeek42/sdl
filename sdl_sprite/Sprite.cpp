@@ -8,14 +8,13 @@ SDL_Texture* Sprite::sheet = NULL;
 bool Sprite::sheet_loaded = false;
 int Sprite::sheet_width = 0;
 int Sprite::sheet_height = 0;
-int Sprite::num_ssprites = 0;
 
 Sprite::Sprite() {
-    sprite = NULL;
+    for (int i=0; i<MAX_ANIM_FRAMES; i++) {
+        sprite[i] = NULL;
+    }
     loaded = false;
     wrap = false;
-    sprite_width = 0;
-    sprite_height = 0;
     run = false;
     pos = {0,0,0,0};
     vx = 0.0; vy = 0.0;
@@ -25,14 +24,23 @@ Sprite::Sprite() {
     lifetime = 0; // stay alive
     lifetimeFade = false;
     fadeValue = 0.0;
+    num_frames = 0;  // animation is off if < 2
+    current_frame = 0;
 }
 
 Sprite::~Sprite() {
     destroy();
 }
 Sprite* Sprite::destroy() {
-    if (type == SPRITE_TYPE_IMAGE && sprite) {
-        SDL_DestroyTexture(sprite);
+    if (type == SPRITE_TYPE_IMAGE && loaded) {
+        for (int i=0; i<MAX_ANIM_FRAMES; i++) {
+            if (sprite[i]) {
+                SDL_DestroyTexture(sprite[i]);
+            }
+        }
+    }
+    if (type == SPRITE_TYPE_SSHEET && sheet_loaded) {
+        SDL_DestroyTexture(sheet);
     }
     return this;
 }
@@ -49,16 +57,21 @@ Sprite::Sprite(std::string path, int fps) {
     
     this->frame_update_time_ms = (int)(1000.0 / (float)fps);
     this->last_update_tick = this->created_tick = SDL_GetTicks();
-    
+    this->last_anim_update_tick = this->last_update_tick;
+    this->anim_update_time_ms = 500;
 
     this->type = SPRITE_TYPE_IMAGE;
-    sprite = loadTexture(path);
-    if (this->sprite) this->loaded = true;  
-    this->dead = false;  
-    this->gravity = false;
-    this->lifetime = 0;
-    this->lifetimeFade = false;
-    this->fadeValue = 0.0;
+    this->sprite[0] = loadTexture(path);
+    this->current_frame = 0;
+    if (this->sprite) {
+        this->loaded = true;  
+        this->num_frames = 1;
+        this->dead = false;  
+        this->gravity = false;
+        this->lifetime = 0;
+        this->lifetimeFade = false;
+        this->fadeValue = 0.0;
+    }
 }
 
 // Shape type
@@ -69,11 +82,11 @@ Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, in
     //printf("Create Rect Sprite\n");
     this->frame_update_time_ms = (int)(1000.0 / (float)fps);
     this->last_update_tick = this->created_tick = SDL_GetTicks();
+    this->last_anim_update_tick = this->last_update_tick;
+    this->anim_update_time_ms = 500;
 
     this->type = SPRITE_TYPE_SHAPE;
     this->shape = _shape;
-    this->sprite_width = w;
-    this->sprite_height = h;
     this->pos.w = w;
     this->pos.h = h;
     this->col.r = this->bcol.r = r;
@@ -86,11 +99,35 @@ Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, in
     this->lifetime = 0;
     this->lifetimeFade = false;
     this->fadeValue = 1.0;
-
+    this->current_frame = 0;
     // if (!SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
     //     printf("Failed to set renderer blend mode\n");
     // }
 
+}
+
+// Sprite-sheet type
+Sprite::Sprite(SDL_Rect *rect) : Sprite(rect, 30) {}
+Sprite::Sprite(SDL_Rect *rect, int fps) {
+    this->frame_update_time_ms = (int)(1000.0 / (float)fps);
+    this->last_update_tick = this->created_tick = SDL_GetTicks();
+    this->last_anim_update_tick = this->last_update_tick;
+    this->anim_update_time_ms = 500;
+
+    this->type = SPRITE_TYPE_SSHEET;
+    this->current_frame = 0;
+    if (sheet_loaded) {
+        this->sspos[0] = *rect;
+        this->num_frames = 1;
+        this->pos.w = rect->w;
+        this->pos.h = rect->h;
+        this->loaded = true;  
+        this->dead = false;  
+        this->gravity = false;
+        this->lifetime = 0;
+        this->lifetimeFade = false;
+        this->fadeValue = 0.0;
+    }
 }
 
 //Loads individual image as texture
@@ -117,13 +154,10 @@ SDL_Texture* Sprite::loadTexture( std::string path )
 		//Get rid of old loaded surface
 		SDL_FreeSurface( loadedSurface );
 
-        if (SDL_QueryTexture(newTexture,NULL, NULL, &sprite_width, &sprite_height)!=0) {
+        if (SDL_QueryTexture(newTexture,NULL, NULL, &pos.w, &pos.h)!=0) {
             printf("Unable to get Texture Size info\n");
         }
-        printf("Sprite loaded %dx%d\n", sprite_width, sprite_height);
-        pos.w = sprite_width;
-        pos.h = sprite_height;
-
+        printf("Sprite loaded %dx%d\n", pos.w, pos.h);
 	}
 
 	return newTexture;
@@ -131,14 +165,21 @@ SDL_Texture* Sprite::loadTexture( std::string path )
 
 bool Sprite::draw() {
     if (dead) return false;
-    if (type==SPRITE_TYPE_IMAGE) 
+    if (type==SPRITE_TYPE_IMAGE || type==SPRITE_TYPE_SSHEET) 
     {
         if (!loaded) {
             printf("No sprite?\n");
             return false;
         }
         //Render texture to screen
-        SDL_RenderCopy( renderer, sprite, NULL, &pos );
+        if (type==SPRITE_TYPE_IMAGE) 
+        {
+            SDL_RenderCopy( renderer, sprite[current_frame], NULL, &pos );
+        }
+        if (type==SPRITE_TYPE_SSHEET) 
+        {
+            SDL_RenderCopy( renderer, sheet, &sspos[current_frame], &pos );
+        }
         return true;
     }
     if (type==SPRITE_TYPE_SHAPE) 
@@ -163,7 +204,7 @@ bool Sprite::draw() {
         }
         return true;
     } 
-    
+
     return false;
 }
 
@@ -196,6 +237,12 @@ bool Sprite::update() {
         dead = true;
         return false;
     }
+    // update animation
+    if (num_frames > 1 && SDL_TICKS_PASSED(SDL_GetTicks(), last_anim_update_tick + anim_update_time_ms)) {
+        current_frame++;
+        current_frame %= num_frames;
+        last_anim_update_tick = SDL_GetTicks();
+    }
     // update at set frame-rate (or slower)
     if (!SDL_TICKS_PASSED(SDL_GetTicks(),last_update_tick + frame_update_time_ms)) {
         return true;
@@ -221,11 +268,11 @@ bool Sprite::update() {
     y += vy;
     if (wrap) 
     {
-        if (x > win_width) {x -= (float)(win_width + sprite_width); };
-        if (x < 0-sprite_width) {x += (float)(win_width + sprite_width); };
+        if (x > win_width) {x -= (float)(win_width + pos.w); };
+        if (x < 0-pos.w) {x += (float)(win_width + pos.w); };
         
-        if (y > win_height) {y -= (float)(win_height + sprite_height); };
-        if (y < 0-sprite_height) {x += (float)(win_height + sprite_height); };
+        if (y > win_height) {y -= (float)(win_height + pos.h); };
+        if (y < 0-pos.h) {x += (float)(win_height + pos.h); };
     } else {
         if (x > win_width*2) {dead = true; }
         if (x < 0-win_width) {dead = true; }
@@ -250,6 +297,17 @@ void Sprite::setBorderColor(int r, int g, int b, int a)
     bcol.b = b;
     bcol.a = a;
 }
+
+void Sprite::setSpriteDestSize(int w, int h) {
+    pos.w = w;
+    pos.h = h;
+}
+
+void Sprite::setSpriteZoom(float zoom) {
+    pos.w = int(zoom * pos.w);
+    pos.h = int(zoom * pos.h);
+}
+
 
 void Sprite::setLifetime(Uint32 ticks, bool fade) {
     lifetime = ticks; // measured in ms
@@ -287,4 +345,41 @@ bool Sprite::loadSheet( std::string path )
 	}
     sheet_loaded = retval;
 	return retval;
+}
+
+bool Sprite::addAnimImage(std::string path)
+{
+    bool retval = true;
+    int index = num_frames;
+
+    if (num_frames < MAX_ANIM_FRAMES && type == SPRITE_TYPE_IMAGE && loaded) {
+        sprite[index] = loadTexture(path);
+        if (sprite[index] == NULL) {
+            retval = false;
+        } else {
+            num_frames++;
+        }
+    }
+    return retval;
+}
+bool Sprite::addAnimSprite(SDL_Rect *ssrect)
+{
+    bool retval = true;
+    int index = num_frames;
+
+    if (num_frames < MAX_ANIM_FRAMES && type == SPRITE_TYPE_SSHEET && sheet_loaded) {
+        sspos[index] = *ssrect;
+        num_frames++;
+
+    } else {
+        retval = false;
+    }
+
+    return retval;
+}
+
+void Sprite::setAnimTime(Uint32 ms) 
+{
+    // default is 500ms
+    anim_update_time_ms = ms;
 }

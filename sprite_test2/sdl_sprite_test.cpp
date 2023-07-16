@@ -22,13 +22,15 @@ SDL_Renderer* gRenderer = NULL;
 
 // Imge to create a sprite from
 std::string gImagePath = "../resources/textures/UFO_1_Enlarged.png";
-
+std::string gImagePath2 = "../resources/textures/UFO_2_Enlarged.png";
+std::string gSpriteSheetPath = "../resources/textures/sprite_sheet_space_invaders.jpg";
 
 //Rendered texture
 SDL_Texture* gTextTexture;
 int gTextTextureWidth, gTextTextureHeight;
 
 Sprite *s1, *s2;
+Sprite *inv[10];
 #define NUM_PARTICLES 200
 Sprite *particles[NUM_PARTICLES];
 
@@ -116,6 +118,10 @@ int main( int argc, char* args[] )
         s1->setVel(2,0);
         s1->setWrap(true);
 
+        // animate it (2 images)
+        s1->addAnimImage(gImagePath2);
+        s1->setAnimTime(1000);
+
         // Sprite which has a shape but no image
         SDL_Color boxcol = {255, 50, 50, 255};
         s2 = new Sprite(SPRITE_SHAPE_RECT, 75, 75, &boxcol, 30);
@@ -125,7 +131,30 @@ int main( int argc, char* args[] )
         s2->setWrap(true);
         s2->setLifetime(0, false);
 
+        // Load a Sprite Sheet and create a sprite from it
+        Sprite::loadSheet(gSpriteSheetPath);
+        // {  7, 225, 16, 16} Invader1 pos1
+        // { 40, 225, 16, 16} Invader1 pos2
+        // { 74, 225, 22, 16} Invader2 pos1
+        // {107, 225, 22, 16} Invader2 pos2
+        // {147, 226, 24, 16} Invader3 pos1
+        // {179, 226, 24, 16} Invader4 pos2
 
+        SDL_Rect sspos;
+        sspos = {7, 225, 16, 16};
+        inv[0] = new Sprite(&sspos);
+        sspos = {74, 225, 22, 16};
+        inv[1] = new Sprite(&sspos);
+        sspos = {147, 226, 24, 16};
+        inv[2] = new Sprite(&sspos);
+        sspos = {179, 226, 24, 16};
+        inv[2]->addAnimSprite(&sspos);
+        for (int i=0;i<3;i++) {
+            inv[i]->setPos(50+50*i,300);
+            inv[i]->setVel(1,0);
+            inv[i]->setWrap(true);           
+            inv[i]->setSpriteZoom(2); 
+        }
 
         while( quit == false )
         { 
@@ -168,6 +197,10 @@ int main( int argc, char* args[] )
             s1->draw();
             s2->update();
             s2->draw();
+            for (int i=0;i<3;i++) {
+                inv[i]->update();
+                inv[i]->draw();
+            }
 
             int mouseX, mouseY; Uint32 mouseButtonState;
             mouseButtonState = SDL_GetMouseState(&mouseX, &mouseY);
