@@ -21,7 +21,7 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 // Imge to create a sprite from
-std::string gSpriteSheetPath = "../resources/textures/sprite_sheet_space_invaders.jpg";
+std::string gSpriteSheetPath = "resources/textures/sprite_sheet_space_invaders.jpg";
 
 //Rendered texture
 SDL_Texture* gTextTexture;
@@ -40,7 +40,7 @@ void updateAndDrawParticles();
 bool myinit() 
 {
 
-    //Initialize SDL
+    //Initialise SDL
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
     {
         printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -82,7 +82,7 @@ bool myinit()
                 //Initialize renderer color
                 SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
 
-                //Initialize PNG loading
+                //Initialise PNG loading
                 int imgFlags = IMG_INIT_PNG;
                 if( !( IMG_Init( imgFlags ) & imgFlags ) )
                 {
@@ -196,19 +196,13 @@ int main( int argc, char* args[] )
             //Clear screen
             SDL_RenderClear( gRenderer );
 
-            for (int i=0;i<55;i++) {
-                if (inv[i]) {
-                    inv[i]->update();
-                    inv[i]->draw();
-                }
-            }
             bool revdir = false;
             for (int i=0;i<55;i++) {
-                if (inv[i] && inv[i]->vx>0 && inv[i]->pos.x >= (SCREEN_WIDTH - 28)) {
+                if (inv[i] && inv[i]->getVX()>0 && inv[i]->getX() >= (SCREEN_WIDTH - 28)) {
                     revdir = true;
                     break;
                 }
-                if (inv[i] && inv[i]->vx<0 && inv[i]->pos.x <= 8) {
+                if (inv[i] && inv[i]->getVX()<0 && inv[i]->getX() <= 8) {
                     revdir = true;
                     break;
                 }
@@ -216,9 +210,15 @@ int main( int argc, char* args[] )
             if (revdir) {
                 for (int i=0;i<55;i++) {
                     if (inv[i]) {
-                        inv[i]->vx = 0 - inv[i]->vx;
-                        inv[i]->pos.y = inv[i]->pos.y - 8;
+                        inv[i]->revVX();
+                        inv[i]->incY(8);
                     }
+                }
+            }
+            for (int i=0;i<55;i++) {
+                if (inv[i]) {
+                    inv[i]->update();
+                    inv[i]->draw();
                 }
             }
 

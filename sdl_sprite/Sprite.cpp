@@ -224,6 +224,41 @@ void Sprite::setVel(float velx, float vely) {
     vy = vely;
 }
 
+int Sprite::getX() {
+	return pos.x;
+}
+int Sprite::getY() {
+	return pos.y;
+}
+float Sprite::getVX() {
+	return vx;
+}
+float Sprite::getVY() {
+	return vy;
+}
+
+void Sprite::incX(float incx) {
+	x += incx;
+	pos.x  = (int) x;
+}
+void Sprite::incY(float incy) {
+	y += incy;
+	pos.y  = (int) y;
+}
+void Sprite::invVX(float incvx) {
+	vx += incvx;
+}
+void Sprite::incVY(float incvy) {
+	vy += incvy;
+}
+
+void Sprite::revVX() {
+	vx *= -1;
+}
+void Sprite::revVY() {
+	vy *= -1;
+}
+
 void Sprite::setGravity(bool b) {
     gravity = b;
     return;

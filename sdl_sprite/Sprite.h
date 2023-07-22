@@ -61,9 +61,19 @@ public:
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
 
-    SDL_Rect pos;  // position and size of sprite (on screen)
-    float vx;
-    float vy;
+    int getX();
+    int getY();
+    float getVX();
+    float getVY();
+
+    void incX(float incx);
+    void incY(float invy);
+    void invVX(float incvx);
+    void incVY(float invvy);
+
+    void revVY();
+    void revVX();
+
     SPRITE_TYPE type;
     bool loaded;
     bool dead;
@@ -74,6 +84,10 @@ private:
     static SDL_Renderer *renderer;
     static int win_width;
     static int win_height;
+
+    SDL_Rect pos;  // position and size of sprite (on screen)
+    float vx;
+    float vy;
 
     float x;
     float y;
