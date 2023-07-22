@@ -383,3 +383,9 @@ void Sprite::setAnimTime(Uint32 ms)
     // default is 500ms
     anim_update_time_ms = ms;
 }
+
+void Sprite::setFrameTime(Uint32 ms) 
+{
+    // Was set as the FPS time
+    frame_update_time_ms = ms;
+}

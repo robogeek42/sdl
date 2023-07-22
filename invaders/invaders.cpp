@@ -4,8 +4,6 @@
 #include <string>
 #include "../sdl_sprite/Sprite.h"
 
-#define INV_FPS 5
-
 //Screen dimension constants
 const int SCREEN_WIDTH  = 448;
 const int SCREEN_HEIGHT = 512;
@@ -31,6 +29,11 @@ int gTextTextureWidth, gTextTextureHeight;
 
 Sprite *inv[55];
 
+int invVel = 4;
+int invAnimTime = 400;
+int invUpdateTime = 400;
+
+
 void addParticle(int px, int py, int vx, int vy);
 void updateAndDrawParticles();
 
@@ -45,11 +48,11 @@ bool myinit()
     }
     else
     {
-   		//Set texture filtering to linear
-		if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
-		{
-			printf( "Warning: Linear texture filtering not enabled!" );
-		}
+           //Set texture filtering to linear
+        if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
+        {
+            printf( "Warning: Linear texture filtering not enabled!" );
+        }
 
         //Create window
         gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
@@ -60,15 +63,15 @@ bool myinit()
         }
         else
         {
-			//Create renderer for window
-			gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
-			if( gRenderer == NULL )
-			{
-				printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
-				return false;
-			}
-			else
-			{
+            //Create renderer for window
+            gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+            if( gRenderer == NULL )
+            {
+                printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
+                return false;
+            }
+            else
+            {
                 // SDL_RendererInfo info;
                 // SDL_GetRendererInfo(gRenderer, &info);
                 // printf("Renderer\n\tFlags 0x%X\n\tnum formats %d\n",info.flags, info.num_texture_formats);
@@ -76,24 +79,22 @@ bool myinit()
                 //     printf("\t\t0x%X\n",info.texture_formats[n]);
                 // }
                 // printf("\n");
-				//Initialize renderer color
-				SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
+                //Initialize renderer color
+                SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
 
-				//Initialize PNG loading
-				int imgFlags = IMG_INIT_PNG;
-				if( !( IMG_Init( imgFlags ) & imgFlags ) )
-				{
-					printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
-					return false;
-				}
-			}
+                //Initialize PNG loading
+                int imgFlags = IMG_INIT_PNG;
+                if( !( IMG_Init( imgFlags ) & imgFlags ) )
+                {
+                    printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+                    return false;
+                }
+            }
         }
     }
 
     return true;
 }
-
-int invVel = 2;
 
 int main( int argc, char* args[] )
 {
@@ -123,46 +124,39 @@ int main( int argc, char* args[] )
         sspos2 = {40, 225, 16, 16};
         for (int i=0;i<11;i++)
         {
-            inv[i] = new Sprite(&sspos1,INV_FPS);
+            inv[i] = new Sprite(&sspos1);
             inv[i]->addAnimSprite(&sspos2);
             inv[i]->setPos(48+32*i+4,128);
-            inv[i]->setVel(0,0);
-            inv[i]->setWrap(true);
-            inv[i]->setSpriteZoom(1); 
         }
         sspos1 = { 74, 225, 22, 16};
         sspos2 = {107, 225, 22, 16};
         for (int i=0;i<11;i++)
         {
-            inv[i+11] = new Sprite(&sspos1, INV_FPS);
+            inv[i+11] = new Sprite(&sspos1);
             inv[i+11]->addAnimSprite(&sspos2);
             inv[i+11]->setPos(48+32*i+2,128+32);
-            inv[i+11]->setVel(0,0);
-            inv[i+11]->setWrap(true);
-            inv[i+11]->setSpriteZoom(1); 
-            inv[i+22] = new Sprite(&sspos1, INV_FPS);
+            inv[i+22] = new Sprite(&sspos1);
             inv[i+22]->addAnimSprite(&sspos2);
             inv[i+22]->setPos(48+32*i+2,128+64);
-            inv[i+22]->setVel(0,0);
-            inv[i+22]->setWrap(true);
-            inv[i+22]->setSpriteZoom(1); 
         }
         sspos1 = {147, 225, 24, 16};
         sspos2 = {179, 225, 24, 16};
         for (int i=0;i<11;i++)
         {
-            inv[i+33] = new Sprite(&sspos1, INV_FPS);
+            inv[i+33] = new Sprite(&sspos1);
             inv[i+33]->addAnimSprite(&sspos2);
             inv[i+33]->setPos(48+32*i+2,128+96);
-            inv[i+33]->setVel(0,0);
-            inv[i+33]->setWrap(true);
-            inv[i+33]->setSpriteZoom(1); 
-            inv[i+44] = new Sprite(&sspos1, INV_FPS);
+            inv[i+44] = new Sprite(&sspos1);
             inv[i+44]->addAnimSprite(&sspos2);
             inv[i+44]->setPos(48+32*i+2,128+128);
-            inv[i+44]->setVel(0,0);
-            inv[i+44]->setWrap(true);
-            inv[i+44]->setSpriteZoom(1); 
+        }
+        for (int i=0;i<55;i++)
+        {
+            inv[i]->setAnimTime(invAnimTime);
+            inv[i]->setFrameTime(invUpdateTime);
+            inv[i]->setVel(invVel,0);
+            inv[i]->setWrap(false);
+            inv[i]->setSpriteZoom(1); 
         }
 
         while( quit == false )
@@ -208,6 +202,26 @@ int main( int argc, char* args[] )
                     inv[i]->draw();
                 }
             }
+            bool revdir = false;
+            for (int i=0;i<55;i++) {
+                if (inv[i] && inv[i]->vx>0 && inv[i]->pos.x >= (SCREEN_WIDTH - 28)) {
+                    revdir = true;
+                    break;
+                }
+                if (inv[i] && inv[i]->vx<0 && inv[i]->pos.x <= 8) {
+                    revdir = true;
+                    break;
+                }
+            }
+            if (revdir) {
+                for (int i=0;i<55;i++) {
+                    if (inv[i]) {
+                        inv[i]->vx = 0 - inv[i]->vx;
+                        inv[i]->pos.y = inv[i]->pos.y - 8;
+                    }
+                }
+            }
+
 
             //Update screen
             SDL_RenderPresent( gRenderer );

@@ -56,25 +56,27 @@ public:
     bool addAnimImage(std::string path);
     bool addAnimSprite(SDL_Rect *ssrect);
     void setAnimTime(Uint32 ms);
+    void setFrameTime(Uint32 ms);
 
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
+
+    SDL_Rect pos;  // position and size of sprite (on screen)
+    float vx;
+    float vy;
+    SPRITE_TYPE type;
+    bool loaded;
+    bool dead;
+    bool run;
+    bool wrap;
 
 private:
     static SDL_Renderer *renderer;
     static int win_width;
     static int win_height;
 
-    SPRITE_TYPE type;
-    bool loaded;
-    bool dead;
-    bool run;
-    bool wrap;
-    float vx;
-    float vy;
     float x;
     float y;
-    SDL_Rect pos;  // position and size of sprite (on screen)
     Uint32 last_update_tick;
     Uint32 frame_update_time_ms;
     Uint32 created_tick;
