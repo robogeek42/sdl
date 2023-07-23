@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 1280;
-const int SCREEN_HEIGHT = 720;
+const int SWIDTH = 1280;
+const int SHEIGHT = 720;
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
@@ -45,7 +45,7 @@ bool init()
     else
     {
         //Create window
-        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SWIDTH, SHEIGHT, SDL_WINDOW_SHOWN );
         if( gWindow == NULL )
         {
             printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
@@ -109,13 +109,13 @@ int main( int argc, char* args[] )
                             if (dest.y>0) dest.y -= 4;
                             break;
                             case SDLK_DOWN:
-                            if (dest.y<SCREEN_HEIGHT - gShip->h) dest.y += 4;
+                            if (dest.y<SHEIGHT - gShip->h) dest.y += 4;
                             break;
                             case SDLK_LEFT:
                             if (dest.x>0) dest.x -= 4;
                             break;
                             case SDLK_RIGHT:
-                            if (dest.x<SCREEN_WIDTH - gShip->w) dest.x += 4;
+                            if (dest.x<SWIDTH - gShip->w) dest.x += 4;
                             break;
                             default:
                             break;

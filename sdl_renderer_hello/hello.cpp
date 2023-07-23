@@ -5,8 +5,8 @@
 #include <string>
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 1280;
-const int SCREEN_HEIGHT = 720;
+const int SWIDTH = 1280;
+const int SHEIGHT = 720;
 
 //Starts up SDL and creates window
 bool init();
@@ -56,7 +56,7 @@ bool init()
 		}
 
         //Create window
-        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SWIDTH, SHEIGHT, SDL_WINDOW_SHOWN );
         if( gWindow == NULL )
         {
             printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
@@ -228,13 +228,13 @@ int main( int argc, char* args[] )
                             if (fillRect.y>0) fillRect.y -= 4;
                             break;
                             case SDLK_DOWN:
-                            if (fillRect.y<SCREEN_HEIGHT - gShipHeight/2) fillRect.y += 4;
+                            if (fillRect.y<SHEIGHT - gShipHeight/2) fillRect.y += 4;
                             break;
                             case SDLK_LEFT:
                             if (fillRect.x>0) fillRect.x -= 4;
                             break;
                             case SDLK_RIGHT:
-                            if (fillRect.x<SCREEN_WIDTH - gShipWidth/2) fillRect.x += 4;
+                            if (fillRect.x<SWIDTH - gShipWidth/2) fillRect.x += 4;
                             break;
                             default:
                             break;
@@ -243,7 +243,7 @@ int main( int argc, char* args[] )
 
                 } 
                 shipDest.x += 1;
-                if (shipDest.x>SCREEN_WIDTH) shipDest.x=0;
+                if (shipDest.x>SWIDTH) shipDest.x=0;
 
 				//Initialize renderer color
 				SDL_SetRenderDrawColor( gRenderer, 0x40, 0x00, 0x40, 0xFF );
@@ -265,7 +265,7 @@ int main( int argc, char* args[] )
                 SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );  
                 for (int i=0;i<4;i++)
                 {
-                    SDL_RenderDrawLine( gRenderer, 0,180+i,SCREEN_WIDTH,180+i);
+                    SDL_RenderDrawLine( gRenderer, 0,180+i,SWIDTH,180+i);
                 }
 
                 //Update screen

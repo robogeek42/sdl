@@ -26,6 +26,12 @@ Sprite::Sprite() {
     fadeValue = 0.0;
     num_frames = 0;  // animation is off if < 2
     current_frame = 0;
+    shape = SPRITE_SHAPE_NONE;
+    type = SPRITE_TYPE_NONE;
+    frame_update_time_ms = (int)(100.0);
+    last_update_tick = created_tick = SDL_GetTicks();
+    last_anim_update_tick = last_update_tick;
+    anim_update_time_ms = 500;
 }
 
 Sprite::~Sprite() {
@@ -89,6 +95,8 @@ Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, in
     this->shape = _shape;
     this->pos.w = w;
     this->pos.h = h;
+    this->vx = 0.0; this->vy = 0.0;
+    this->x = 0.0; this->y = 0.0;
     this->col.r = this->bcol.r = r;
     this->col.g = this->bcol.g = g;
     this->col.b = this->bcol.b = b;
@@ -100,6 +108,15 @@ Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, in
     this->lifetimeFade = false;
     this->fadeValue = 1.0;
     this->current_frame = 0;
+    this->num_frames = 0;
+    this->loaded = false;
+    this->dead = false;
+    this->gravity = false;
+    this->lifetime = 0;
+    this->lifetimeFade = false;
+    this->fadeValue = 0.0;
+    this->wrap = false;
+    this->run = false;
     // if (!SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
     //     printf("Failed to set renderer blend mode\n");
     // }
@@ -116,6 +133,7 @@ Sprite::Sprite(SDL_Rect *rect, int fps) {
 
     this->type = SPRITE_TYPE_SSHEET;
     this->current_frame = 0;
+
     if (sheet_loaded) {
         this->sspos[0] = *rect;
         this->num_frames = 1;
@@ -128,7 +146,12 @@ Sprite::Sprite(SDL_Rect *rect, int fps) {
         this->lifetimeFade = false;
         this->fadeValue = 0.0;
     }
-}
+    // other stuff not used/setup on creation
+    this->vx = 0.0; this->vy = 0.0;
+    this->x = 0.0; this->y = 0.0;
+    this->shape = SPRITE_SHAPE_NONE;
+    this->wrap = false;
+    this->run = false;}
 
 //Loads individual image as texture
 SDL_Texture* Sprite::loadTexture( std::string path )
@@ -235,6 +258,12 @@ float Sprite::getVX() {
 }
 float Sprite::getVY() {
 	return vy;
+}
+int Sprite::getW() {
+	return pos.w;
+}
+int Sprite::getH() {
+	return pos.h;
 }
 
 void Sprite::incX(float incx) {
@@ -424,3 +453,4 @@ void Sprite::setFrameTime(Uint32 ms)
     // Was set as the FPS time
     frame_update_time_ms = ms;
 }
+

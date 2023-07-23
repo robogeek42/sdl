@@ -11,11 +11,13 @@
 #include <SDL2_gfxPrimitives.h>
 
 typedef enum {
+	SPRITE_TYPE_NONE,
     SPRITE_TYPE_IMAGE,
     SPRITE_TYPE_SHAPE,
     SPRITE_TYPE_SSHEET
 } SPRITE_TYPE;
 typedef enum {
+	SPRITE_SHAPE_NONE,
     SPRITE_SHAPE_RECT,
     SPRITE_SHAPE_CIRCLE
 } SPRITE_SHAPE;
@@ -65,6 +67,8 @@ public:
     int getY();
     float getVX();
     float getVY();
+    int getW();
+    int getH();
 
     void incX(float incx);
     void incY(float invy);

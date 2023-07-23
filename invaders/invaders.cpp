@@ -1,18 +1,36 @@
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_ttf.h>
 #include <stdio.h>
 #include <string>
 #include "../sdl_sprite/Sprite.h"
 
+const int ZM = 2; // Zoom
+
 //Screen dimension constants
-const int SCREEN_WIDTH  = 448;
-const int SCREEN_HEIGHT = 512;
+const int SWIDTH  = 224*ZM;
+const int SHEIGHT = 256*ZM;
+const int STOP = 32*ZM; // 2 lines of score and text at top of screen
+const int SSHIP = 32*ZM; // Height of Spaceship row
+const int SBOT = 16*ZM; // Line of text/info at bottom
+const int SCANNON = SBOT - (24*ZM); // top of cannon
+
+const int IGIW = 16*ZM; // standard width of an invader in grid
+const int IGIH = 16*ZM; // standard height of an invader in grid
+const int NILINE = 11; // number of invaders per line
+const int NIROWS = 5; // number of invader rows
+const int IGWIDTH = IGIW*NILINE;
+const int IGHEIGHT = IGIH*NIROWS;
+const int IGLEFT = (SWIDTH - IGWIDTH)/2; // Gap to left of invaders at start
+const int NI = NILINE * NIROWS;
+
+// Globally used font
+TTF_Font* gFont = NULL;
+std::string gInvadersFontPath = "resources/fonts/space_invaders.ttf";
+
 
 //Starts up SDL and creates window
-bool init();
-
-//Frees media and shuts down SDL
-void close();
+bool myinit();
 
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
@@ -27,15 +45,13 @@ std::string gSpriteSheetPath = "resources/textures/sprite_sheet_space_invaders.j
 SDL_Texture* gTextTexture;
 int gTextTextureWidth, gTextTextureHeight;
 
-Sprite *inv[55];
+// Invaders
+Sprite *inv[NI];
 
 int invVel = 4;
-int invAnimTime = 400;
-int invUpdateTime = 400;
+int invAnimTime = 200;
+int invUpdateTime = 200;
 
-
-void addParticle(int px, int py, int vx, int vy);
-void updateAndDrawParticles();
 
 bool myinit() 
 {
@@ -55,7 +71,7 @@ bool myinit()
         }
 
         //Create window
-        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+        gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SWIDTH, SHEIGHT, SDL_WINDOW_SHOWN );
         if( gWindow == NULL )
         {
             printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
@@ -72,23 +88,23 @@ bool myinit()
             }
             else
             {
-                // SDL_RendererInfo info;
-                // SDL_GetRendererInfo(gRenderer, &info);
-                // printf("Renderer\n\tFlags 0x%X\n\tnum formats %d\n",info.flags, info.num_texture_formats);
-                // for (int n = 0; n < info.num_texture_formats; n++) {
-                //     printf("\t\t0x%X\n",info.texture_formats[n]);
-                // }
-                // printf("\n");
-                //Initialize renderer color
                 SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
 
                 //Initialise PNG loading
                 int imgFlags = IMG_INIT_PNG;
                 if( !( IMG_Init( imgFlags ) & imgFlags ) )
                 {
-                    printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+                    printf( "SDL_image could not initialise! SDL_image Error: %s\n", IMG_GetError() );
                     return false;
                 }
+
+                // Initialise SDL_ttf
+                if( TTF_Init() == -1 )
+                {
+                    printf( "SDL_ttf could not initialise! SDL_ttf Error: %s\n", TTF_GetError() );
+                    return false;
+                }
+
             }
         }
     }
@@ -96,14 +112,51 @@ bool myinit()
     return true;
 }
 
+bool loadMedia()
+{
+    bool success = true;
+
+	// Load background
+
+    // Open the font
+    gFont = TTF_OpenFont(gInvadersFontPath.c_str(), 16 );
+    if( gFont == NULL )
+    {
+        printf( "Failed to load invaders font! SDL_ttf Error: %s\n", TTF_GetError() );
+        success = false;
+    }
+    else {
+    	printf("Font loaded\n");
+    }
+
+    return success;
+}
+
 int main( int argc, char* args[] )
 {
+	bool initialised = false;
+	bool medialoaded = false;
    //Start up SDL and create window
     if( !myinit() )
     {
-        printf( "Failed to initialize!\n" );
+        printf( "Failed to initialise!\n" );
     }
     else
+    {
+    	initialised = true;
+    }
+
+	if (!loadMedia())
+	{
+		printf( "Failed to load media!\n" );
+	}
+    else
+    {
+    	medialoaded = true;
+
+    }
+
+	if (initialised && medialoaded)
     {
         SDL_Event e; 
         bool quit = false; 
@@ -122,41 +175,41 @@ int main( int argc, char* args[] )
         SDL_Rect sspos1, sspos2;
         sspos1 = { 7, 225, 16, 16};
         sspos2 = {40, 225, 16, 16};
-        for (int i=0;i<11;i++)
+        for (int i=0;i<NILINE;i++)
         {
             inv[i] = new Sprite(&sspos1);
             inv[i]->addAnimSprite(&sspos2);
-            inv[i]->setPos(48+32*i+4,128);
+            inv[i]->setPos(IGLEFT+IGIW*i+4,STOP+SSHIP);
         }
         sspos1 = { 74, 225, 22, 16};
         sspos2 = {107, 225, 22, 16};
-        for (int i=0;i<11;i++)
+        for (int i=0;i<NILINE;i++)
         {
             inv[i+11] = new Sprite(&sspos1);
             inv[i+11]->addAnimSprite(&sspos2);
-            inv[i+11]->setPos(48+32*i+2,128+32);
+            inv[i+11]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH);
             inv[i+22] = new Sprite(&sspos1);
             inv[i+22]->addAnimSprite(&sspos2);
-            inv[i+22]->setPos(48+32*i+2,128+64);
+            inv[i+22]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*2);
         }
         sspos1 = {147, 225, 24, 16};
         sspos2 = {179, 225, 24, 16};
-        for (int i=0;i<11;i++)
+        for (int i=0;i<NILINE;i++)
         {
             inv[i+33] = new Sprite(&sspos1);
             inv[i+33]->addAnimSprite(&sspos2);
-            inv[i+33]->setPos(48+32*i+2,128+96);
+            inv[i+33]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*3);
             inv[i+44] = new Sprite(&sspos1);
             inv[i+44]->addAnimSprite(&sspos2);
-            inv[i+44]->setPos(48+32*i+2,128+128);
+            inv[i+44]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*4);
         }
-        for (int i=0;i<55;i++)
+        for (int i=0;i<NI;i++)
         {
             inv[i]->setAnimTime(invAnimTime);
             inv[i]->setFrameTime(invUpdateTime);
             inv[i]->setVel(invVel,0);
             inv[i]->setWrap(false);
-            inv[i]->setSpriteZoom(1); 
+            inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
         }
 
         while( quit == false )
@@ -197,31 +250,39 @@ int main( int argc, char* args[] )
             SDL_RenderClear( gRenderer );
 
             bool revdir = false;
-            for (int i=0;i<55;i++) {
-                if (inv[i] && inv[i]->getVX()>0 && inv[i]->getX() >= (SCREEN_WIDTH - 28)) {
+            bool hitbottom = false;
+            for (int i=0;i<NI;i++) {
+                if (inv[i] && inv[i]->getVX()>0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
                     revdir = true;
                     break;
                 }
-                if (inv[i] && inv[i]->getVX()<0 && inv[i]->getX() <= 8) {
+                if (inv[i] && inv[i]->getVX()<0 && inv[i]->getX() <= invVel) {
                     revdir = true;
                     break;
                 }
             }
             if (revdir) {
-                for (int i=0;i<55;i++) {
+                for (int i=0;i<NI;i++) {
                     if (inv[i]) {
                         inv[i]->revVX();
-                        inv[i]->incY(8);
+                        inv[i]->incY(16);
+                        if (inv[i]->getY() <= SCANNON) {
+                        	hitbottom = true;
+                        }
                     }
                 }
             }
-            for (int i=0;i<55;i++) {
+            for (int i=0;i<NI;i++) {
                 if (inv[i]) {
                     inv[i]->update();
                     inv[i]->draw();
                 }
             }
 
+            if (hitbottom)
+            {
+            	printf("End\n");
+            }
 
             //Update screen
             SDL_RenderPresent( gRenderer );
@@ -230,10 +291,15 @@ int main( int argc, char* args[] )
 
     // CLOSE
 
-    // delete sprites
-    for (int i=0;i<55;i++) {
-        inv[i]->destroy();
-    }
+	if (medialoaded) {
+	    TTF_CloseFont( gFont );
+	    gFont = NULL;
+
+	    // delete sprites
+	    for (int i=0;i<55;i++) {
+	        if (inv[i]) inv[i]->destroy();
+	    }
+	}
 
     //Destroy window
     SDL_DestroyRenderer( gRenderer );
