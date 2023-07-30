@@ -14,6 +14,7 @@ const int STOP = 32*ZM; // 2 lines of score and text at top of screen
 const int SSHIP = 32*ZM; // Height of Spaceship row
 const int SBOT = SHEIGHT - 16*ZM; // Line of text/info at bottom
 const int SCANNON = SBOT - (24*ZM); // top of cannon
+const int SBARRIER = SHEIGHT - 64*ZM;
 
 const int IGIW = 16*ZM; // standard width of an invader in grid
 const int IGIH = 16*ZM; // standard height of an invader in grid
@@ -50,6 +51,7 @@ Sprite *inv[NI];
 int invVel = 4;
 int invAnimTime = 200;
 int invUpdateTime = 200;
+int numInvaders = NI;
 
 // Cannon
 Sprite *cannon;
@@ -71,7 +73,7 @@ int spaceshipSpeed = 2*ZM;
 Sprite *laser;
 SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
-int laserUpdateTime = 2;
+int laserUpdateTime = 4;
 int laserSpeed = 0-1*ZM;
 
 // invader explosion
@@ -84,9 +86,11 @@ Sprite *missile[3];
 SDL_Rect missileSSPos = {413, 77, 6, 12};
 
 
-// Defence
-Sprite *defence[3];
-SDL_Rect defenceSSPos = {316, 13, 44, 32};
+// Defence barriers
+const int numBarriers = 3;
+SDL_Texture *barrier[numBarriers];
+SDL_Rect barrierSSPos = {316, 13, 44, 32};
+SDL_Surface *barrierSurface[numBarriers];
 
 // Cannon explosion
 Sprite *cexplosion[3];
@@ -174,6 +178,40 @@ bool loadMedia()
     }
 
     return success;
+}
+
+void setupBariers() {
+	Uint32 windowFormat = SDL_GetWindowPixelFormat(gWindow);
+	SDL_Rect dest = {0, 0, 44, 32};
+	for (int b=0; b<numBarriers; b++) {
+		barrier[b] = SDL_CreateTexture(gRenderer, windowFormat, SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET, 44, 32);
+		if (!barrier[b]) {
+			printf("Failed to create texture for barrier\n");
+		}
+		if (!SDL_SetRenderTarget(gRenderer, barrier[b])) {
+			printf("Unable to set rendertarget\n");
+			return;
+		}
+
+		int err = SDL_RenderFillRect(gRenderer, &dest);
+		//int err = SDL_RenderCopy(gRenderer, sheet, &barrierSSPos, &dest);
+		if (err != 0) {
+			printf("Failed to copy texture for barrier Error %d\n", err);
+		}
+		SDL_RenderFillRect(gRenderer, &dest);
+	}
+	SDL_SetRenderTarget(gRenderer, NULL);
+}
+
+void drawBarriers() {
+	//SDL_Rect src = {0, 0, 44, 32};
+	SDL_Rect dst = {75, SBARRIER, 22*ZM, 16*ZM};
+	for (int b = 0 ; b < numBarriers ; b++ ) {
+		if (SDL_RenderCopy(gRenderer, barrier[b], NULL, &dst) != 0) {
+			printf("Error copying barrier texture to screen\n");
+		}
+		dst.x += 75;
+	}
 }
 
 SDL_Texture* loadFromRenderedText( std::string textureText, SDL_Color textColor )
@@ -368,6 +406,7 @@ int main( int argc, char* args[] )
         iexplosion->setWrap(false);
         iexplosion->setSpriteZoom(ZM/2);
 
+        setupBariers();
 
         //****************************************************************
         // MAIN LOOP
@@ -449,6 +488,8 @@ int main( int argc, char* args[] )
             snprintf(scorestr, 8, "%04d", gScore2);
             drawNumber(scorestr, 112*ZM,16*ZM, 8*ZM, 8*ZM);
 
+            drawBarriers();
+
             // Draw cannon
             cannon->update();
             cannon->draw();
@@ -487,8 +528,9 @@ int main( int argc, char* args[] )
 					SDL_Rect *ipos = inv[i]->getPos();
 					if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
 						// hit
-						printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
+						//printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
 						inv[i]->dead = true;
+						numInvaders--;
 						bLaser = false;
 						gScore1 += 7; if (i<11) gScore1 += 8;
 
@@ -502,7 +544,7 @@ int main( int argc, char* args[] )
 					SDL_Rect *sspos = spaceship->getPos();
 					if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
 						// hit
-						printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
+						//printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
 						bSpaceship = false;
 						gScore1 += 100;
 
@@ -551,6 +593,10 @@ int main( int argc, char* args[] )
             if (countIExplosion) {
             	iexplosion->draw();
             	countIExplosion--;
+            }
+
+            if (numInvaders == 0) {
+            	printf("Next wave ...\n");
             }
             if (hitbottom)
             {
