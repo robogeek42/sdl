@@ -421,6 +421,9 @@ bool Sprite::loadSheet( std::string path )
     sheet_loaded = retval;
 	return retval;
 }
+SDL_Texture *Sprite::getSheet() {
+	return sheet;
+}
 
 bool Sprite::addAnimImage(std::string path)
 {

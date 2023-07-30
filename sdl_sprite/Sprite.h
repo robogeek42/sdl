@@ -62,6 +62,7 @@ public:
 
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
+    static SDL_Texture *getSheet();
 
     int getX();
     int getY();

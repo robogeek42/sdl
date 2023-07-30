@@ -39,7 +39,7 @@ SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
 
 // Imge to create a sprite from
-std::string gSpriteSheetPath = "resources/textures/sprite_sheet_space_invaders.jpg";
+std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
 
 //Rendered texture
 SDL_Texture* gNumbersTexture[10];
@@ -53,46 +53,46 @@ int invUpdateTime = 200;
 
 // Cannon
 Sprite *cannon;
-SDL_Rect cannonSSPos = {277, 228, 26, 16};
+SDL_Rect cannonSSPos = {277, 28, 26, 16};
 int cannonX = 0;
-int cannonAnimTime = 20;
+int cannonUpdateTime = 20;
 int cannonSpeed = 2*ZM;
 int cannonsRemaining = 2;
 
 // Spaceship
 Sprite *spaceship;
-SDL_Rect spaceshipSSPos = {215, 224, 48, 22};
-int spaceshipAnimTime = 60;
+SDL_Rect spaceshipSSPos = {215, 24, 48, 22};
+int spaceshipUpdateTime = 60;
 bool bSpaceship = false;
 int spaceshipDir = 1;
 int spaceshipSpeed = 2*ZM;
 
 // laser/bullet
 Sprite *laser;
-SDL_Rect laserSSPos = {8, 264, 2, 8};
+SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
-int laserUpdateTime = 1;
+int laserUpdateTime = 2;
 int laserSpeed = 0-1*ZM;
 
 // invader explosion
 Sprite *iexplosion;
-SDL_Rect iexplosionSSPos = {437, 276, 26, 16};
+SDL_Rect iexplosionSSPos = {437, 76, 26, 16};
 int countIExplosion = 0;
 
 // invader missile
 Sprite *missile[3];
-SDL_Rect missileSSPos = {413, 277, 6, 12};
+SDL_Rect missileSSPos = {413, 77, 6, 12};
 
 
 // Defence
 Sprite *defence[3];
-SDL_Rect defenceSSPos = {316, 213, 44, 32};
+SDL_Rect defenceSSPos = {316, 13, 44, 32};
 
 // Cannon explosion
 Sprite *cexplosion[3];
-SDL_Rect cexplosionSSPos = {367, 275, 36, 16};
+SDL_Rect cexplosionSSPos = {367, 75, 36, 16};
 
-
+SDL_Texture *sheet;
 
 int gScore1 = 0;
 int gScore2 = 0;
@@ -290,18 +290,19 @@ int main( int argc, char* args[] )
         // {107, 225, 22, 16} Invader2 pos2
         // {147, 226, 24, 16} Invader3 pos1
         // {179, 226, 24, 16} Invader4 pos2
+        sheet = Sprite::getSheet();
 
         SDL_Rect sspos1, sspos2;
-        sspos1 = { 7, 225, 16, 16};
-        sspos2 = {40, 225, 16, 16};
+        sspos1 = { 7, 25, 16, 16};
+        sspos2 = {40, 25, 16, 16};
         for (int i=0;i<NILINE;i++)
         {
             inv[i] = new Sprite(&sspos1);
             inv[i]->addAnimSprite(&sspos2);
             inv[i]->setPos(IGLEFT+IGIW*i+4,STOP+SSHIP);
         }
-        sspos1 = { 74, 225, 22, 16};
-        sspos2 = {107, 225, 22, 16};
+        sspos1 = { 74, 25, 22, 16};
+        sspos2 = {107, 25, 22, 16};
         for (int i=0;i<NILINE;i++)
         {
             inv[i+11] = new Sprite(&sspos1);
@@ -311,8 +312,8 @@ int main( int argc, char* args[] )
             inv[i+22]->addAnimSprite(&sspos1);
             inv[i+22]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*2);
         }
-        sspos1 = {147, 225, 24, 16};
-        sspos2 = {179, 225, 24, 16};
+        sspos1 = {147, 25, 24, 16};
+        sspos2 = {179, 25, 24, 16};
         for (int i=0;i<NILINE;i++)
         {
             inv[i+33] = new Sprite(&sspos1);
@@ -340,7 +341,7 @@ int main( int argc, char* args[] )
         cannonX = 108*ZM;
         cannon->setPos(cannonX, 216*ZM);
         cannon->setAnimTime(0);
-        cannon->setFrameTime(cannonAnimTime);
+        cannon->setFrameTime(cannonUpdateTime);
         cannon->setVel(0,0);
         cannon->setWrap(false);
         cannon->setSpriteZoom(ZM/2);
@@ -348,7 +349,7 @@ int main( int argc, char* args[] )
         spaceship = new Sprite(&spaceshipSSPos);
         spaceship->setPos(0,36*ZM);
         spaceship->setAnimTime(0);
-        spaceship->setFrameTime(spaceshipAnimTime);
+        spaceship->setFrameTime(spaceshipUpdateTime);
         spaceship->setVel(0,0);
         spaceship->setWrap(false);
         spaceship->setSpriteZoom(ZM/2);
@@ -419,10 +420,9 @@ int main( int argc, char* args[] )
             	}
             }
 
-            //Initialize renderer color
-            SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
-
+            // =======================================================================
             //Clear screen
+            SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
             SDL_RenderClear( gRenderer );
 
             SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );
@@ -435,8 +435,13 @@ int main( int argc, char* args[] )
             SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
             SDL_RenderCopy( gRenderer, textTexture, NULL, &textRect );
 
-//            char numstr[4];
-//            snprintf(num, 2, "%d", coun);
+            char numstr[4];
+            snprintf(numstr, 2, "%d", cannonsRemaining+1);
+            drawNumber(numstr, 1*ZM, SBOT+ZM, 6*ZM, 6*ZM);
+            for (int i=0;i<cannonsRemaining;i++) {
+            	SDL_Rect dst = {16*ZM + 16*i*ZM, SBOT, cannon->getW(), cannon->getH()};
+                SDL_RenderCopy( gRenderer, sheet, &cannonSSPos, &dst );
+            }
 
             char scorestr[10];
             snprintf(scorestr, 8, "%04d", gScore1);
