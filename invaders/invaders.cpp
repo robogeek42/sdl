@@ -57,6 +57,7 @@ SDL_Rect cannonSSPos = {277, 228, 26, 16};
 int cannonX = 0;
 int cannonAnimTime = 20;
 int cannonSpeed = 2*ZM;
+int cannonsRemaining = 2;
 
 // Spaceship
 Sprite *spaceship;
@@ -76,10 +77,12 @@ int laserSpeed = 0-1*ZM;
 // invader explosion
 Sprite *iexplosion;
 SDL_Rect iexplosionSSPos = {437, 276, 26, 16};
-bool bIExplosion = false;
+int countIExplosion = 0;
+
 // invader missile
-Sprite *missile;
+Sprite *missile[3];
 SDL_Rect missileSSPos = {413, 277, 6, 12};
+
 
 // Defence
 Sprite *defence[3];
@@ -422,13 +425,18 @@ int main( int argc, char* args[] )
             //Clear screen
             SDL_RenderClear( gRenderer );
 
-            SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-//            SDL_RenderDrawLine(gRenderer, 0, 16, 448, 16);
-//            SDL_RenderDrawLine(gRenderer, 0, 32, 448, 32);
-//            SDL_RenderDrawLine(gRenderer, 0, 48, 448, 48);
-//            SDL_RenderDrawLine(gRenderer, 0, 64, 448, 64);
+            SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );
+
+            for (int i=0;i<ZM; i++) {
+            	SDL_RenderDrawLine(gRenderer, 0, SBOT-ZM+i, SWIDTH, SBOT-ZM+i);
+            }
+
             // Render Text
+            SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
             SDL_RenderCopy( gRenderer, textTexture, NULL, &textRect );
+
+//            char numstr[4];
+//            snprintf(num, 2, "%d", coun);
 
             char scorestr[10];
             snprintf(scorestr, 8, "%04d", gScore1);
@@ -478,8 +486,9 @@ int main( int argc, char* args[] )
 						inv[i]->dead = true;
 						bLaser = false;
 						gScore1 += 7; if (i<11) gScore1 += 8;
+
 						iexplosion->setPos(ipos->x, ipos->y);
-						bIExplosion = true;
+						countIExplosion = 10;
 						break;
 					}
 				}
@@ -491,6 +500,9 @@ int main( int argc, char* args[] )
 						printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
 						bSpaceship = false;
 						gScore1 += 100;
+
+						iexplosion->setPos(lx-6*ZM, ly-8*ZM);
+						countIExplosion = 10;
 					}
 				}
 
@@ -531,9 +543,9 @@ int main( int argc, char* args[] )
                     inv[i]->draw();
                 }
             }
-            if (bIExplosion) {
+            if (countIExplosion) {
             	iexplosion->draw();
-            	bIExplosion = false;
+            	countIExplosion--;
             }
             if (hitbottom)
             {
