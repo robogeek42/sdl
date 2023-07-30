@@ -69,6 +69,7 @@ public:
     float getVY();
     int getW();
     int getH();
+    SDL_Rect *getPos();
 
     void incX(float incx);
     void incY(float invy);
@@ -83,6 +84,8 @@ public:
     bool dead;
     bool run;
     bool wrap;
+
+    float fps;
 
 private:
     static SDL_Renderer *renderer;

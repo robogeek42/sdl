@@ -32,6 +32,7 @@ Sprite::Sprite() {
     last_update_tick = created_tick = SDL_GetTicks();
     last_anim_update_tick = last_update_tick;
     anim_update_time_ms = 500;
+    fps = 0.0;
 }
 
 Sprite::~Sprite() {
@@ -77,6 +78,7 @@ Sprite::Sprite(std::string path, int fps) {
         this->lifetime = 0;
         this->lifetimeFade = false;
         this->fadeValue = 0.0;
+        this->fps = 0.0;
     }
 }
 
@@ -117,6 +119,7 @@ Sprite::Sprite(SPRITE_SHAPE _shape, int w, int h, int r, int g, int b, int a, in
     this->fadeValue = 0.0;
     this->wrap = false;
     this->run = false;
+    this->fps = 0.0;
     // if (!SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND)) {
     //     printf("Failed to set renderer blend mode\n");
     // }
@@ -151,7 +154,10 @@ Sprite::Sprite(SDL_Rect *rect, int fps) {
     this->x = 0.0; this->y = 0.0;
     this->shape = SPRITE_SHAPE_NONE;
     this->wrap = false;
-    this->run = false;}
+    this->run = false;
+
+    this->fps = 0.0;
+}
 
 //Loads individual image as texture
 SDL_Texture* Sprite::loadTexture( std::string path )
@@ -265,6 +271,9 @@ int Sprite::getW() {
 int Sprite::getH() {
 	return pos.h;
 }
+SDL_Rect *Sprite::getPos() {
+	return &pos;
+}
 
 void Sprite::incX(float incx) {
 	x += incx;
@@ -295,30 +304,32 @@ void Sprite::setGravity(bool b) {
 
 bool Sprite::update() {
     if (dead) return false;
+    Uint32 ticks = SDL_GetTicks();
 
     // kill this sprite after lifetime ms
-    if (lifetime != 0 && SDL_TICKS_PASSED(SDL_GetTicks(), created_tick + lifetime)) {
+    if (lifetime != 0 && SDL_TICKS_PASSED(ticks, created_tick + lifetime)) {
         dead = true;
         return false;
     }
     // update animation
-    if (num_frames > 1 && SDL_TICKS_PASSED(SDL_GetTicks(), last_anim_update_tick + anim_update_time_ms)) {
+    if (num_frames > 1 && SDL_TICKS_PASSED(ticks, last_anim_update_tick + anim_update_time_ms)) {
         current_frame++;
         current_frame %= num_frames;
-        last_anim_update_tick = SDL_GetTicks();
+        last_anim_update_tick = ticks;
     }
     // update at set frame-rate (or slower)
-    if (!SDL_TICKS_PASSED(SDL_GetTicks(),last_update_tick + frame_update_time_ms)) {
+    if (!SDL_TICKS_PASSED(ticks,last_update_tick + frame_update_time_ms)) {
         return true;
     }
-    last_update_tick = SDL_GetTicks();
+    fps = 1000.0/(float)(ticks - last_update_tick);
+    last_update_tick = ticks;
 
     // fade when 1 second remains
     if (lifetimeFade && lifetime != 0)
     { 
         int ticks_fading_starts = created_tick + std::max((int)0, (int)(lifetime - 1000));
-        if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks_fading_starts)) {
-            int fade = 255 - (SDL_GetTicks() - ticks_fading_starts)/4;   
+        if (SDL_TICKS_PASSED(ticks, ticks_fading_starts)) {
+            int fade = 255 - (ticks - ticks_fading_starts)/4;
             fadeValue = (float)fade / 255.0;
         }
     }
