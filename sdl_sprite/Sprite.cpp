@@ -215,6 +215,7 @@ bool Sprite::draw() {
     {
         switch (shape) {
             case SPRITE_SHAPE_RECT: 
+            case SPRITE_SHAPE_CIRCLE:
             {
                 SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a *fadeValue);
                 SDL_RenderFillRect(renderer, &pos);
@@ -222,11 +223,11 @@ bool Sprite::draw() {
                 SDL_RenderDrawRect(renderer, &pos);
                 break;
             }
-            case SPRITE_SHAPE_CIRCLE:
-            {
-                filledCircleRGBA(renderer, pos.x, pos.y, pos.w/2, col.r, col.g, col.b, col.a * fadeValue);
-                break;
-            }
+            // case SPRITE_SHAPE_CIRCLE:
+            // {
+            //     filledCircleRGBA(renderer, pos.x, pos.y, pos.w/2, col.r, col.g, col.b, col.a * fadeValue);
+            //     break;
+            // }
             default:
                 printf("Shape Type unknown\n");
             break;
