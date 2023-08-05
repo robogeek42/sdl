@@ -1,6 +1,5 @@
 #include <SDL.h>
 #include <SDL_image.h>
-#include <SDL_ttf.h>
 #include <stdio.h>
 #include <string>
 #include "../sdl_sprite/Sprite.h"
@@ -26,9 +25,8 @@ const int IGLEFT = (SWIDTH - IGWIDTH)/2; // Gap to left of invaders at start
 const int NI = NILINE * NIROWS;
 
 // Globally used font
-TTF_Font* gFont = NULL;
-std::string gInvadersFontPath = "resources/fonts/space_invaders.ttf";
-
+std::string gInvadersFontSheetPath = "resources/textures/space_invaders_font.png";
+SDL_Texture *gFontSheet;
 
 //Starts up SDL and creates window
 bool myinit();
@@ -41,10 +39,6 @@ SDL_Renderer* gRenderer = NULL;
 
 // Imge to create a sprite from
 std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
-
-//Rendered texture
-SDL_Texture* gNumbersTexture[10];
-int gNumbersTextureWidth, gNumbersTextureHeight;
 
 // Invaders
 Sprite *inv[NI];
@@ -100,6 +94,7 @@ SDL_Texture *sheet;
 
 int gScore1 = 0;
 int gScore2 = 0;
+int gHiScore = 0;
 
 bool myinit() 
 {
@@ -127,6 +122,7 @@ bool myinit()
         }
         else
         {
+            printf("Window pixel format %s\n", SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(gWindow)));
             //Create renderer for window
             gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
             if( gRenderer == NULL )
@@ -146,13 +142,6 @@ bool myinit()
                     return false;
                 }
 
-                // Initialise SDL_ttf
-                if( TTF_Init() == -1 )
-                {
-                    printf( "SDL_ttf could not initialise! SDL_ttf Error: %s\n", TTF_GetError() );
-                    return false;
-                }
-
             }
         }
     }
@@ -164,20 +153,42 @@ bool loadMedia()
 {
     bool success = true;
 
-	// Load background
-
-    // Open the font
-    gFont = TTF_OpenFont(gInvadersFontPath.c_str(), 8*ZM );
-    if( gFont == NULL )
-    {
-        printf( "Failed to load invaders font! SDL_ttf Error: %s\n", TTF_GetError() );
-        success = false;
+    // Load the font sheet
+    SDL_Surface *surface = IMG_Load(gInvadersFontSheetPath.c_str());
+    if (surface) {
+        printf("Loaded font sheet %dx%d format %s\n", surface->w, surface->h, SDL_GetPixelFormatName(surface->format->format));
+        SDL_Surface *surface2 = SDL_ConvertSurfaceFormat(surface, SDL_GetWindowPixelFormat(gWindow), 0);
+        if (surface2) {
+            printf("Converted font sheet format to %s\n", SDL_GetPixelFormatName(surface2->format->format));
+            gFontSheet = SDL_CreateTextureFromSurface(gRenderer, surface2);
+            SDL_FreeSurface(surface2);
+        }
+        else {
+            printf("Failed to convert font sheet format to window surface format \n");
+            SDL_FreeSurface(surface);
+        }
     }
-    else {
-    	printf("Font loaded\n");
+    else
+    {
+        printf("Failed to load font sheet\n");
     }
 
     return success;
+}
+
+void renderText(const char *text, int X, int Y) {
+    // font sheet is 2 x the basic size (chars are 16x16 instead of 8x8)
+    int l = strlen(text); if (l>28) l=28;
+    SDL_Rect src = {0, 0, 16, 16};
+    SDL_Rect dst = {0, Y*ZM, 8*ZM, 8*ZM};
+    for (int i=0; i<l; i++) {
+        int index = (text[i]-32) % 32; // how many chars across the font page
+        int row = (text[i]-32) / 32; // row of the font sheet
+        src.x = index * 16;
+        src.y = row * 32;
+        dst.x = X*ZM + i*8*ZM;
+        SDL_RenderCopy(gRenderer, gFontSheet, &src, &dst);
+    }
 }
 
 void setupBariers() {
@@ -211,78 +222,6 @@ void drawBarriers() {
 			printf("Error copying barrier texture to screen\n");
 		}
 		dst.x += 75;
-	}
-}
-
-SDL_Texture* loadFromRenderedText( std::string textureText, SDL_Color textColor )
-{
-	SDL_Texture *textTexture;
-    //Render text surface
-    SDL_Surface* textSurface = TTF_RenderText_Solid( gFont, textureText.c_str(), textColor );
-    if( textSurface == NULL )
-    {
-        printf( "Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError() );
-    }
-    else
-    {
-        //Create texture from surface pixels
-    	textTexture = SDL_CreateTextureFromSurface( gRenderer, textSurface );
-        if( textTexture == NULL )
-        {
-            printf( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
-        }
-        else
-        {
-            //Get image dimensions
-//            gTextTextureWidth = textSurface->w;
-//            gTextTextureHeight = textSurface->h;
-        }
-
-        //Get rid of old surface
-        SDL_FreeSurface( textSurface );
-    }
-
-    //Return texture
-    return textTexture;
-}
-
-void setupNumberTexure() {
-    SDL_Color textColor = { 0xFF, 0xFF, 0xFF };
-    const char *nums = "0123456789.";
-    for (int i=0; i<11; i++) {
-    	gNumbersTexture[i] = loadFromRenderedText(&nums[i], textColor);
-    }
-}
-
-void drawNumber(const char* numstr, int x, int y, int cw, int ch) {
-	SDL_Rect srcRect = {0, 0, 6*ZM, 8*ZM};
-	SDL_Rect dstRect = {x, y, cw, ch};
-
-	int n = 0;
-	int shift=0;
-	while (numstr[n] != 0) {
-		dstRect.x += cw;
-		if (numstr[n] == 46) {
-			srcRect.w = 2*ZM;
-			dstRect.w = cw-4*ZM;
-			dstRect.x += shift;
-			shift =0;
-			SDL_RenderCopy( gRenderer, gNumbersTexture[10], &srcRect, &dstRect );
-		} else {
-			if (numstr[n] == 49) {
-				srcRect.w = 4*ZM;
-				dstRect.w = cw-2*ZM;
-				dstRect.x += 2*ZM;
-				shift = -2*ZM;
-			} else {
-				srcRect.w = 6*ZM;
-				dstRect.w = cw;
-				dstRect.x += shift;
-				shift =0;
-			}
-			SDL_RenderCopy( gRenderer, gNumbersTexture[numstr[n]-48], &srcRect, &dstRect );
-		}
-		n++;
 	}
 }
 
@@ -369,11 +308,6 @@ int main( int argc, char* args[] )
             inv[i]->setWrap(false);
             inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
         }
-
-        SDL_Color textColor = { 0xFF, 0xFF, 0xFF };
-        SDL_Texture *textTexture = loadFromRenderedText("SCORE<1>  HI-SCORE  SCORE<2>", textColor);
-        SDL_Rect textRect = {0,0,SWIDTH, 10*ZM};
-        setupNumberTexure();
 
         cannon = new Sprite(&cannonSSPos);
         cannonX = 108*ZM;
@@ -470,13 +404,12 @@ int main( int argc, char* args[] )
             	SDL_RenderDrawLine(gRenderer, 0, SBOT-ZM+i, SWIDTH, SBOT-ZM+i);
             }
 
-            // Render Text
-            SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-            SDL_RenderCopy( gRenderer, textTexture, NULL, &textRect );
+            // Render The top-line
+            renderText("SCORE<1>  HI-SCORE  SCORE<2>", 0, 0);
 
             char numstr[4];
             snprintf(numstr, 2, "%d", cannonsRemaining+1);
-            drawNumber(numstr, 1*ZM, SBOT+ZM, 6*ZM, 6*ZM);
+            renderText(numstr, 0, SBOT+1);
             for (int i=0;i<cannonsRemaining;i++) {
             	SDL_Rect dst = {16*ZM + 16*i*ZM, SBOT, cannon->getW(), cannon->getH()};
                 SDL_RenderCopy( gRenderer, sheet, &cannonSSPos, &dst );
@@ -484,9 +417,11 @@ int main( int argc, char* args[] )
 
             char scorestr[10];
             snprintf(scorestr, 8, "%04d", gScore1);
-            drawNumber(scorestr, 8*ZM,16*ZM, 8*ZM, 8*ZM);
+            renderText(scorestr, 16, 16);
+            snprintf(scorestr, 8, "%04d", gHiScore);
+            renderText(scorestr, 96, 16);
             snprintf(scorestr, 8, "%04d", gScore2);
-            drawNumber(scorestr, 112*ZM,16*ZM, 8*ZM, 8*ZM);
+            renderText(scorestr, 176, 16);
 
             drawBarriers();
 
@@ -605,7 +540,7 @@ int main( int argc, char* args[] )
 
 //            char fpsstr[20];
 //            sprintf(fpsstr, "%4.2f", cannon->fps);
-//            drawNumber(fpsstr, 8*ZM,SCANNON+16*ZM, 8*ZM, 8*ZM);
+//            renderText(fpsstr, 8,SCANNON+16);
 
             //Update screen
             SDL_RenderPresent( gRenderer );
@@ -615,9 +550,7 @@ int main( int argc, char* args[] )
     // CLOSE
 
 	if (medialoaded) {
-	    TTF_CloseFont( gFont );
-	    gFont = NULL;
-
+        SDL_DestroyTexture(gFontSheet);
 	    // delete sprites
 	    for (int i=0;i<55;i++) {
 	        if (inv[i]) inv[i]->destroy();
