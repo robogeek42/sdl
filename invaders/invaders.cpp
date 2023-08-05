@@ -85,6 +85,10 @@ const int numBarriers = 3;
 SDL_Texture *barrier[numBarriers];
 SDL_Rect barrierSSPos = {316, 13, 44, 32};
 SDL_Surface *barrierSurface[numBarriers];
+SDL_Rect barrierPos[numBarriers] = 
+    {{35*ZM,SBARRIER, 28*ZM,16*ZM},
+    {98*ZM,SBARRIER, 28*ZM,16*ZM},
+    {161*ZM,SBARRIER, 28*ZM,16*ZM}};
 
 // Cannon explosion
 Sprite *cexplosion[3];
@@ -191,38 +195,66 @@ void renderText(const char *text, int X, int Y) {
     }
 }
 
+// 22x16 ... grow to 28x16
+const int bw = 28;
+const int bh = 16;
+char bdata[] = {
+    0,0,0,0,0,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,0,0,0,0,0, // 0
+    0,0,0,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,0,0,0, // 1
+    0,0,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,0,0, // 2
+    0,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,0, // 3
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,0,0,0, 0,0,0,0,0,0, 0,0,0,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1
+};
 void setupBariers() {
-	Uint32 windowFormat = SDL_GetWindowPixelFormat(gWindow);
-	SDL_Rect dest = {0, 0, 44, 32};
 	for (int b=0; b<numBarriers; b++) {
-		barrier[b] = SDL_CreateTexture(gRenderer, windowFormat, SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET, 44, 32);
+		barrier[b] = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, bw, bh);
 		if (!barrier[b]) {
 			printf("Failed to create texture for barrier\n");
 		}
-		if (!SDL_SetRenderTarget(gRenderer, barrier[b])) {
-			printf("Unable to set rendertarget\n");
-			return;
-		}
-
-		int err = SDL_RenderFillRect(gRenderer, &dest);
-		//int err = SDL_RenderCopy(gRenderer, sheet, &barrierSSPos, &dest);
-		if (err != 0) {
-			printf("Failed to copy texture for barrier Error %d\n", err);
-		}
-		SDL_RenderFillRect(gRenderer, &dest);
-	}
-	SDL_SetRenderTarget(gRenderer, NULL);
+        unsigned char *texbytes = nullptr;
+        int pitch = 0;
+        if (SDL_LockTexture(barrier[b],  nullptr, reinterpret_cast<void**>(&texbytes), &pitch) ==0) {
+            unsigned char green[4] = { 255, 0, 255, 0 };
+            unsigned char black[4] = { 255, 0, 0, 0 };
+            for(int y = 0; y < bh; ++y) {
+                for (int x = 0; x < bw; ++x) {
+                    if (bdata[y*bw+x]==0) {
+                        memcpy(&texbytes[(y * bw + x)*sizeof(black)], black, sizeof(black));
+                    } else {
+                        memcpy(&texbytes[(y * bw + x)*sizeof(green)], green, sizeof(green));
+                    }
+                }
+            }
+            SDL_UnlockTexture(barrier[b]);
+        } else {
+            printf("Error locking barrier texture %d\n",b);
+            printf("Error: %s\n",SDL_GetError());
+        }
+    }
+    printf("Barrier 0 at %d,%d, %dx%d\n", barrierPos[0].x, barrierPos[0].y, barrierPos[0].w, barrierPos[0].h);
 }
 
 void drawBarriers() {
-	//SDL_Rect src = {0, 0, 44, 32};
-	SDL_Rect dst = {75, SBARRIER, 22*ZM, 16*ZM};
 	for (int b = 0 ; b < numBarriers ; b++ ) {
-		if (SDL_RenderCopy(gRenderer, barrier[b], NULL, &dst) != 0) {
+		if (SDL_RenderCopy(gRenderer, barrier[b], NULL, &(barrierPos[b])) != 0) {
 			printf("Error copying barrier texture to screen\n");
 		}
-		dst.x += 75;
 	}
+}
+
+void checkHitBarrier() {
+    
 }
 
 int main( int argc, char* args[] )
