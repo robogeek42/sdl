@@ -29,6 +29,8 @@ SDL_Texture* gTextTexture;
 SDL_Surface* gTextSurface;
 int gTextureWidth, gTextureHeight;
 
+bool loadFont(std::string path);
+
 bool myinit() 
 {
 
@@ -86,6 +88,7 @@ bool myinit()
 
 				printf("SDL_image and SDL_ttf initialised\n");
 
+				loadFont(gInvadersFontPath);
 			}
 		}
 	}
@@ -93,17 +96,18 @@ bool myinit()
 	return true;
 }
 
-bool loadFont() {
+bool loadFont(std::string path) {
 	// Open the font
-	gFont = TTF_OpenFont(gInvadersFontPath.c_str(), 16 );
+	gFont = TTF_OpenFont(path.c_str(), 16 );
 	if( gFont == NULL )
 	{
 		printf( "Failed to load invaders font! SDL_ttf Error: %s\n", TTF_GetError() );
+		return false;
 	}
 	else {
 		printf("Font loaded\n");
 	}
-
+	return true;
 }
 
 bool loadFromRenderedText( std::string textureText, SDL_Color textColor )
@@ -118,7 +122,7 @@ bool loadFromRenderedText( std::string textureText, SDL_Color textColor )
 	else
 	{
 		//Create texture from surface pixels
-		printf("create texture from text surface\n");
+		//printf("create texture from text surface\n");
 		gTextTexture = SDL_CreateTextureFromSurface( gRenderer, gTextSurface );
 		if( gTextTexture == NULL )
 		{
@@ -127,7 +131,7 @@ bool loadFromRenderedText( std::string textureText, SDL_Color textColor )
 		}
 		else
 		{
-			printf("OK\n");
+			//printf("OK\n");
 			//Get image dimensions
 			gTextureWidth = gTextSurface->w;
 			gTextureHeight = gTextSurface->h;
@@ -141,10 +145,23 @@ bool loadFromRenderedText( std::string textureText, SDL_Color textColor )
 	return success;
 }
 
+void renderChars(const char* chars, int XW, int Y, SDL_Color textColor) {
+	printf("Render : %s\n", chars);
+	int l = strlen(chars);
+	for (int i = 0; i < l; i++ ) {
+		char todraw[3]; 
+		todraw[0] = chars[i];
+		todraw[1] = 32;
+		todraw[2] = 0;
+		loadFromRenderedText(todraw, textColor);
+		// centre it in the XW space
+		SDL_Rect textRect = {i*16+(XW-gTextureWidth)/2,Y, gTextureWidth, gTextureHeight};
+		SDL_RenderCopy( gRenderer, gTextTexture, NULL, &textRect );
+	}
+}
+
 int main( int argc, char* args[] )
 {
-	printf("Hello\n");
-
 	//Start up SDL and create window
 	if( !myinit() )
 	{
@@ -156,24 +173,36 @@ int main( int argc, char* args[] )
 		bool quit = false;
 
 		SDL_Color textColor = { 0xFF, 0xFF, 0xFF };
-		if (!loadFromRenderedText("SCORE<1>  HI-SCORE  SCORE<2>", textColor))
-		{
-			printf("Failed to render text\n");
-		}
-		//Clear screen
-		SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
-		SDL_RenderClear( gRenderer );
 
-		SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );
+		//Clear screen
+		SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0x00 );
+		SDL_RenderClear( gRenderer );
 
 		// Render Text
 		SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-		SDL_Rect textRect = {0,0, gTextureWidth, gTextureHeight};
+
+		renderChars(" !\"#$%&'()*+,-./0123456789:;<=>?", 16, 0, textColor);
+		renderChars("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", 16, 32, textColor);
+		renderChars("`abcdefghijklmnopqrstuvwxyz{|}~", 16, 64, textColor);
+
+		loadFromRenderedText("SCORE<1>  HI-SCORE  SCORE<2>", textColor);
+		SDL_Rect textRect = {0,96, gTextureWidth, gTextureHeight};
+		SDL_RenderCopy( gRenderer, gTextTexture, NULL, &textRect );
+
+		loadFromRenderedText("SPACE INVADERS", textColor);
+		textRect = {0,128, gTextureWidth, gTextureHeight};
+		SDL_RenderCopy( gRenderer, gTextTexture, NULL, &textRect );
+
+		loadFromRenderedText("GAME OVER", textColor);
+		textRect = {0,160, gTextureWidth, gTextureHeight};
+		SDL_RenderCopy( gRenderer, gTextTexture, NULL, &textRect );
+
+		loadFromRenderedText("PLAYER ", textColor);
+		textRect = {0,196, gTextureWidth, gTextureHeight};
 		SDL_RenderCopy( gRenderer, gTextTexture, NULL, &textRect );
 
 		SDL_RenderPresent( gRenderer );
 
-		/*
 		while( quit == false ) { 
 			while( SDL_PollEvent( &e ) ) { 
 				if( e.type == SDL_QUIT ) { quit = true; } 
@@ -190,13 +219,16 @@ int main( int argc, char* args[] )
 				}
 			} 
 		}
-		*/
+		
 
-		SDL_Surface *sshot = SDL_CreateRGBSurface(0, SWIDTH, SHEIGHT, 24, 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000);
-		SDL_RenderReadPixels(gRenderer, NULL, SDL_PIXELFORMAT_RGB888, sshot->pixels, sshot->pitch);
-		SDL_SaveBMP(sshot, "screenshot.bmp");
-		SDL_FreeSurface(sshot);
-
+		SDL_Surface *sshot = SDL_CreateRGBSurface(0, SWIDTH, SHEIGHT, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00000000);
+		if (sshot) {
+			SDL_RenderReadPixels(gRenderer, NULL, 0, sshot->pixels, sshot->pitch);
+			IMG_SavePNG(sshot, "screenshot.png");
+			SDL_FreeSurface(sshot);
+		} else {
+			printf("Failed to create surface for sshot\n");
+		}
 	}
 
 
