@@ -9,3 +9,6 @@ render_text:
 
 clean:
 	$(MAKE) -C invaders clean
+
+distclean:
+	$(MAKE) -C invaders distclean

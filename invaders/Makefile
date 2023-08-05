@@ -22,7 +22,7 @@ sdl_sprite_test.o: sdl_sprite_test.cpp
 Sprite.o: ../sdl_sprite/Sprite.h ../sdl_sprite/Sprite.cpp
 
 clean:
-	$(RM) $(SPRITE_OBJS) $(TEST_OBJS) $(NAME)
+	$(RM) $(SPRITE_OBJS) $(TEST_OBJS) 
 
 distclean: clean
 	$(RM) $(NAME)
