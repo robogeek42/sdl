@@ -67,6 +67,7 @@ int spaceshipSpeed = 2*ZM;
 Sprite *laser;
 SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
+int laserCoolCount = 0;
 int laserUpdateTime = 4;
 int laserSpeed = 0-1*ZM;
 
@@ -81,14 +82,38 @@ SDL_Rect missileSSPos = {413, 77, 6, 12};
 
 
 // Defence barriers
-const int numBarriers = 3;
+// 22x16 ... grow to 28x16
+const int bw = 28;
+const int bh = 16;
+char bdata[] = {
+    0,0,0,0,0,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,0,0,0,0,0, // 0
+    0,0,0,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,0,0,0, // 1
+    0,0,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,0,0, // 2
+    0,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,0, // 3
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1, // 8
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,0,0,0, 0,0,0,0,0,0, 0,0,0,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1 // 16
+};
+const int numBarriers = 4;
 SDL_Texture *barrier[numBarriers];
 SDL_Rect barrierSSPos = {316, 13, 44, 32};
 SDL_Surface *barrierSurface[numBarriers];
 SDL_Rect barrierPos[numBarriers] = 
-    {{35*ZM,SBARRIER, 28*ZM,16*ZM},
-    {98*ZM,SBARRIER, 28*ZM,16*ZM},
-    {161*ZM,SBARRIER, 28*ZM,16*ZM}};
+    {{ 23      *ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(23+50)  *ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(23+50*2)*ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(23+50*3)*ZM,SBARRIER, bw*ZM,bh*ZM}
+    };
+unsigned char *barrierPixels[numBarriers];
 
 // Cannon explosion
 Sprite *cexplosion[3];
@@ -195,28 +220,35 @@ void renderText(const char *text, int X, int Y) {
     }
 }
 
-// 22x16 ... grow to 28x16
-const int bw = 28;
-const int bh = 16;
-char bdata[] = {
-    0,0,0,0,0,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,0,0,0,0,0, // 0
-    0,0,0,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,0,0,0, // 1
-    0,0,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,0,0, // 2
-    0,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,0, // 3
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,0,0,0, 0,0,0,0,0,0, 0,0,0,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1,
-    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1
-};
 void setupBariers() {
+    unsigned char *pixels;
+    pixels = (unsigned char *)malloc(bw*bh*4);
+    if (pixels == NULL) {
+        printf("Alloc error\n");
+        return;
+    }
+    unsigned char green[4] = { 255, 0, 255, 0 };
+    unsigned char black[4] = { 255, 0, 0, 0 };
+    for(int y = 0; y < bh; ++y) {
+        for (int x = 0; x < bw; ++x) {
+            if (bdata[y*bw+x]==0) {
+                memcpy(&pixels[(y * bw + x)*4], black, 4);
+            } else {
+                memcpy(&pixels[(y * bw + x)*4], green, 4);
+            }
+        }
+    }
+
+	for (int b=0; b<numBarriers; b++) {
+        barrierPixels[b] = (unsigned char *)malloc(bw*bh*4);
+        memcpy(barrierPixels[b], pixels, bw*bh*4);
+        if (barrierPixels[b] == NULL) {
+            printf("Alloc error barrier %d\n",b);
+            return;
+        }
+    }
+    free(pixels);
+
 	for (int b=0; b<numBarriers; b++) {
 		barrier[b] = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, bw, bh);
 		if (!barrier[b]) {
@@ -225,24 +257,14 @@ void setupBariers() {
         unsigned char *texbytes = nullptr;
         int pitch = 0;
         if (SDL_LockTexture(barrier[b],  nullptr, reinterpret_cast<void**>(&texbytes), &pitch) ==0) {
-            unsigned char green[4] = { 255, 0, 255, 0 };
-            unsigned char black[4] = { 255, 0, 0, 0 };
-            for(int y = 0; y < bh; ++y) {
-                for (int x = 0; x < bw; ++x) {
-                    if (bdata[y*bw+x]==0) {
-                        memcpy(&texbytes[(y * bw + x)*sizeof(black)], black, sizeof(black));
-                    } else {
-                        memcpy(&texbytes[(y * bw + x)*sizeof(green)], green, sizeof(green));
-                    }
-                }
-            }
+            memcpy(texbytes, barrierPixels[b], bw*bh*4);
             SDL_UnlockTexture(barrier[b]);
         } else {
             printf("Error locking barrier texture %d\n",b);
             printf("Error: %s\n",SDL_GetError());
         }
+        printf("Barrier %d at %d,%d, %dx%d\n", b, barrierPos[0].x, barrierPos[0].y, barrierPos[0].w, barrierPos[0].h);
     }
-    printf("Barrier 0 at %d,%d, %dx%d\n", barrierPos[0].x, barrierPos[0].y, barrierPos[0].w, barrierPos[0].h);
 }
 
 void drawBarriers() {
@@ -250,12 +272,90 @@ void drawBarriers() {
 		if (SDL_RenderCopy(gRenderer, barrier[b], NULL, &(barrierPos[b])) != 0) {
 			printf("Error copying barrier texture to screen\n");
 		}
+        // SDL_SetRenderDrawColor(gRenderer, 0xFF,0x00,0x00,0xFF);
+        // SDL_RenderDrawRect(gRenderer, &(barrierPos[b]));
 	}
 }
 
-void checkHitBarrier() {
-    
+/* return -1 if not hit any
+   or barrier number if it hits
+*/
+const int hsw=5; const int hs_leftoff=2;
+const int hsh=6;
+unsigned char hitshape[hsh][hsw] = {
+    {0,0,0,0,0},
+    {1,0,1,0,1},
+    {0,1,1,1,0},
+    {0,0,1,1,1},
+    {0,1,1,1,0},
+    {0,0,1,1,0},
+};
+bool checkHitBarrier() {
+    int barrierHit = -1;
+    bool hit = false;
+    // first check bounding boxes
+	for (int b = 0 ; b < numBarriers ; b++ ) {
+        SDL_Rect *lp = laser->getPos();
+        if (lp->x >= barrierPos[b].x &&
+            lp->x <  barrierPos[b].x+barrierPos[b].w &&
+            lp->y <  barrierPos[b].y+barrierPos[b].h &&
+            lp->y >= barrierPos[b].y
+            ) 
+        {
+            barrierHit = b;
+            break;
+        }    
+    }
+
+    if (barrierHit>=0) {
+        // check pixel location at end of laser
+        // laser pos in terms of zoomed screen
+        int x = laser->getPos()->x;
+        int y = laser->getPos()->y;
+        // subtract barrier pos
+        x -= barrierPos[barrierHit].x;
+        y -= barrierPos[barrierHit].y;
+        // divide to get non-zoomed pos relative to pixels in barrier texture
+        x /= ZM; 
+        y /= ZM;
+        
+        int newx=x;
+        for (int i = x-1; i<=x+1; i++) {
+            unsigned char *ptr = barrierPixels[barrierHit]+(y*bw + i)*4;
+            // ptr [0]=A [1]=B [2]=G [3]=R
+            if (ptr[1]==0 && ptr[2]==0xFF && ptr[3]==0){ // green = hit
+                hit = true;
+                //printf("Barrier %d x,y %d,%d (0x%02X 0x%02X 0x%02X 0x%02X)\n", barrierHit, x,y, ptr[0],ptr[1],ptr[2],ptr[3]);
+                newx = i;
+                break;    
+            }
+        }
+        if (hit) {
+            x = newx;
+            for (int j=0; j<=hsh; j++) {
+                for (int i=0; i<hsw; i++) {
+                    int yoff = y - hsh + j + 1;
+                    int xoff = x - hs_leftoff + i;
+
+                    if(hitshape[j][i]==1 && xoff < bw && xoff >= 0 && yoff < bh && yoff >=0) {
+                        int offset = (yoff*bw+xoff)*4;
+                        barrierPixels[barrierHit][offset+1] = 0x00;
+                        barrierPixels[barrierHit][offset+2] = 0x00;
+                        barrierPixels[barrierHit][offset+3] = 0x00;
+                    }
+                }
+            }        
+            unsigned char *texbytes = nullptr;
+            int pitch = 0;
+            if (SDL_LockTexture(barrier[barrierHit],  nullptr, reinterpret_cast<void**>(&texbytes), &pitch) ==0) {
+                memcpy(texbytes, barrierPixels[barrierHit], bw*bh*4);
+                SDL_UnlockTexture(barrier[barrierHit]);
+            }            
+        }
+    } 
+    return hit;
 }
+
 
 int main( int argc, char* args[] )
 {
@@ -417,12 +517,16 @@ int main( int argc, char* args[] )
             	cannon->setVel( 0, 0);
             }
 
-            if (currentKeyStates[SDL_SCANCODE_SPACE]) {
-            	if (!bLaser) {
-            		bLaser = true;
-            		laser->setPos(cannon->getX()+6*ZM, SCANNON);
-            		laser->setVel(0,laserSpeed);
-            	}
+            if (laserCoolCount>0) {
+                laserCoolCount--;
+            } else {
+                if (currentKeyStates[SDL_SCANCODE_SPACE]) {
+                    if (!bLaser) {
+                        bLaser = true;
+                        laser->setPos(cannon->getX()+6*ZM, SCANNON);
+                        laser->setVel(0,laserSpeed);
+                    }
+                }
             }
 
             // =======================================================================
@@ -519,6 +623,12 @@ int main( int argc, char* args[] )
 						countIExplosion = 10;
 					}
 				}
+
+                if (checkHitBarrier()) {
+                    //printf("Hit barrier\n");
+                    bLaser=false;
+                    laserCoolCount = 200;
+                }
 
 				if (laser->getY()<32*ZM) {
 					bLaser = false;
