@@ -42,9 +42,9 @@ std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.j
 
 // Invaders
 Sprite *inv[NI];
-int invVel = 4;
-int invAnimTime = 200;
-int invUpdateTime = 200;
+float invVel = 4.0;
+const int invSpeedMultiplier = 7;
+int invAnimTime = 50+invSpeedMultiplier*NI;
 int numInvaders = NI;
 
 // Cannon
@@ -67,19 +67,22 @@ int spaceshipSpeed = 2*ZM;
 Sprite *laser;
 SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
-int laserCoolCount = 0;
+Uint32 laserCoolTicks = 0;
+bool laserCooling = false;
 int laserUpdateTime = 4;
 int laserSpeed = 0-1*ZM;
 
 // invader explosion
 Sprite *iexplosion;
 SDL_Rect iexplosionSSPos = {437, 76, 26, 16};
-int countIExplosion = 0;
+Uint32 explosionTicks = 0;
+Uint32 explosionTime = 200;
 
 // invader missile
-Sprite *missile[3];
+const int numMissiles = 3;
+Sprite *missile[numMissiles];
 SDL_Rect missileSSPos = {413, 77, 6, 12};
-
+int numMissilesFired = 0;
 
 // Defence barriers
 // 22x16 ... grow to 28x16
@@ -153,7 +156,8 @@ bool myinit()
         {
             printf("Window pixel format %s\n", SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(gWindow)));
             //Create renderer for window
-            gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+            SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC, "1", SDL_HINT_OVERRIDE);
+            gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED);
             if( gRenderer == NULL )
             {
                 printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
@@ -161,6 +165,7 @@ bool myinit()
             }
             else
             {
+                
                 SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
 
                 //Initialise PNG loading
@@ -208,7 +213,7 @@ bool loadMedia()
 void renderText(const char *text, int X, int Y) {
     // font sheet is 2 x the basic size (chars are 16x16 instead of 8x8)
     int l = strlen(text); if (l>28) l=28;
-    SDL_Rect src = {0, 0, 16, 16};
+    SDL_Rect src = {0, 0, 14, 16};
     SDL_Rect dst = {0, Y*ZM, 8*ZM, 8*ZM};
     for (int i=0; i<l; i++) {
         int index = (text[i]-32) % 32; // how many chars across the font page
@@ -220,7 +225,87 @@ void renderText(const char *text, int X, int Y) {
     }
 }
 
-void setupBariers() {
+void setupFormation() 
+{
+    numInvaders = NI;
+    invVel = 4.0;
+    invAnimTime = 50+invSpeedMultiplier*NI;
+
+    SDL_Rect sspos1, sspos2;
+    sspos1 = { 7, 25, 16, 16};
+    sspos2 = {40, 25, 16, 16};
+    for (int i=0;i<NILINE;i++)
+    {
+        inv[i] = new Sprite(&sspos1);
+        inv[i]->addAnimSprite(&sspos2);
+        inv[i]->setPos(IGLEFT+IGIW*i+4,STOP+SSHIP);
+    }
+    sspos1 = { 74, 25, 22, 16};
+    sspos2 = {107, 25, 22, 16};
+    for (int i=0;i<NILINE;i++)
+    {
+        inv[i+11] = new Sprite(&sspos1);
+        inv[i+11]->addAnimSprite(&sspos2);
+        inv[i+11]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH);
+        inv[i+22] = new Sprite(&sspos2);
+        inv[i+22]->addAnimSprite(&sspos1);
+        inv[i+22]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*2);
+    }
+    sspos1 = {147, 25, 24, 16};
+    sspos2 = {179, 25, 24, 16};
+    for (int i=0;i<NILINE;i++)
+    {
+        inv[i+33] = new Sprite(&sspos1);
+        inv[i+33]->addAnimSprite(&sspos2);
+        inv[i+33]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*3);
+        inv[i+44] = new Sprite(&sspos2);
+        inv[i+44]->addAnimSprite(&sspos1);
+        inv[i+44]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*4);
+    }
+    for (int i=0;i<NI;i++)
+    {
+        inv[i]->setAnimTime(invAnimTime);
+        inv[i]->setFrameTime(invAnimTime);
+        inv[i]->setVel(invVel,0);
+        inv[i]->setWrap(false);
+        inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
+    }
+    
+    cannon = new Sprite(&cannonSSPos);
+    cannonX = 108*ZM;
+    cannon->setPos(cannonX, 216*ZM);
+    cannon->setAnimTime(0);
+    cannon->setFrameTime(cannonUpdateTime);
+    cannon->setVel(0,0);
+    cannon->setWrap(false);
+    cannon->setSpriteZoom(ZM/2);
+
+    spaceship = new Sprite(&spaceshipSSPos);
+    spaceship->setPos(0,36*ZM);
+    spaceship->setAnimTime(0);
+    spaceship->setFrameTime(spaceshipUpdateTime);
+    spaceship->setVel(0,0);
+    spaceship->setWrap(false);
+    spaceship->setSpriteZoom(ZM/2);
+
+    laser = new Sprite(&laserSSPos);
+    laser->setAnimTime(0);
+    laser->setFrameTime(laserUpdateTime);
+    laser->setVel(0,0);
+    laser->setWrap(false);
+    laser->setSpriteZoom(ZM/2);
+
+    iexplosion = new Sprite(&iexplosionSSPos);
+    iexplosion->setAnimTime(0);
+    iexplosion->setFrameTime(100);
+    iexplosion->setVel(0,0);
+    iexplosion->setWrap(false);
+    iexplosion->setSpriteZoom(ZM/2);
+
+}
+
+void setupBariers() 
+{
     unsigned char *pixels;
     pixels = (unsigned char *)malloc(bw*bh*4);
     if (pixels == NULL) {
@@ -267,7 +352,8 @@ void setupBariers() {
     }
 }
 
-void drawBarriers() {
+void drawBarriers() 
+{
 	for (int b = 0 ; b < numBarriers ; b++ ) {
 		if (SDL_RenderCopy(gRenderer, barrier[b], NULL, &(barrierPos[b])) != 0) {
 			printf("Error copying barrier texture to screen\n");
@@ -290,7 +376,8 @@ unsigned char hitshape[hsh][hsw] = {
     {0,1,1,1,0},
     {0,0,1,1,0},
 };
-bool checkHitBarrier() {
+bool checkHitBarrier() 
+{
     int barrierHit = -1;
     bool hit = false;
     // first check bounding boxes
@@ -356,11 +443,27 @@ bool checkHitBarrier() {
     return hit;
 }
 
+Uint32 nextShip=0;
+Uint32 getNextShipTime(int s)
+{
+    int secs;
+    Uint32 ticks;
+    if (s>0) {
+        secs = s;
+    } else {
+        secs = s + rand()%25;
+    } 
+    ticks = SDL_GetTicks() + secs*1000;
+    printf("Next ship in %ds\n",secs);
+    return ticks;
+}
 
 int main( int argc, char* args[] )
 {
 	bool initialised = false;
 	bool medialoaded = false;
+
+    Uint32 startTick = 0;
 
 	srand(time(0));
 
@@ -388,6 +491,8 @@ int main( int argc, char* args[] )
     {
         SDL_Event e; 
         bool quit = false; 
+        bool gameOver = false;
+        startTick = SDL_GetTicks();
 
         Sprite::setRenderer(gRenderer);
 
@@ -401,292 +506,273 @@ int main( int argc, char* args[] )
         // {179, 226, 24, 16} Invader4 pos2
         sheet = Sprite::getSheet();
 
-        SDL_Rect sspos1, sspos2;
-        sspos1 = { 7, 25, 16, 16};
-        sspos2 = {40, 25, 16, 16};
-        for (int i=0;i<NILINE;i++)
-        {
-            inv[i] = new Sprite(&sspos1);
-            inv[i]->addAnimSprite(&sspos2);
-            inv[i]->setPos(IGLEFT+IGIW*i+4,STOP+SSHIP);
-        }
-        sspos1 = { 74, 25, 22, 16};
-        sspos2 = {107, 25, 22, 16};
-        for (int i=0;i<NILINE;i++)
-        {
-            inv[i+11] = new Sprite(&sspos1);
-            inv[i+11]->addAnimSprite(&sspos2);
-            inv[i+11]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH);
-            inv[i+22] = new Sprite(&sspos2);
-            inv[i+22]->addAnimSprite(&sspos1);
-            inv[i+22]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*2);
-        }
-        sspos1 = {147, 25, 24, 16};
-        sspos2 = {179, 25, 24, 16};
-        for (int i=0;i<NILINE;i++)
-        {
-            inv[i+33] = new Sprite(&sspos1);
-            inv[i+33]->addAnimSprite(&sspos2);
-            inv[i+33]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*3);
-            inv[i+44] = new Sprite(&sspos2);
-            inv[i+44]->addAnimSprite(&sspos1);
-            inv[i+44]->setPos(IGLEFT+IGIW*i+2,STOP+SSHIP+IGIH*4);
-        }
-        for (int i=0;i<NI;i++)
-        {
-            inv[i]->setAnimTime(invAnimTime);
-            inv[i]->setFrameTime(invUpdateTime);
-            inv[i]->setVel(invVel,0);
-            inv[i]->setWrap(false);
-            inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
-        }
+        while (!quit) {
+            setupFormation();
+            setupBariers();
 
-        cannon = new Sprite(&cannonSSPos);
-        cannonX = 108*ZM;
-        cannon->setPos(cannonX, 216*ZM);
-        cannon->setAnimTime(0);
-        cannon->setFrameTime(cannonUpdateTime);
-        cannon->setVel(0,0);
-        cannon->setWrap(false);
-        cannon->setSpriteZoom(ZM/2);
-
-        spaceship = new Sprite(&spaceshipSSPos);
-        spaceship->setPos(0,36*ZM);
-        spaceship->setAnimTime(0);
-        spaceship->setFrameTime(spaceshipUpdateTime);
-        spaceship->setVel(0,0);
-        spaceship->setWrap(false);
-        spaceship->setSpriteZoom(ZM/2);
-
-        laser = new Sprite(&laserSSPos);
-        laser->setAnimTime(0);
-        laser->setFrameTime(laserUpdateTime);
-        laser->setVel(0,0);
-        laser->setWrap(false);
-        laser->setSpriteZoom(ZM/2);
-
-        iexplosion = new Sprite(&iexplosionSSPos);
-        iexplosion->setAnimTime(0);
-        iexplosion->setFrameTime(100);
-        iexplosion->setVel(0,0);
-        iexplosion->setWrap(false);
-        iexplosion->setSpriteZoom(ZM/2);
-
-        setupBariers();
-
-        //****************************************************************
-        // MAIN LOOP
-
-        while( quit == false )
-        { 
-            while( SDL_PollEvent( &e ) )
+            // set a time before the mystery ship appears
+            // between 5 secs and 30 secs
+            nextShip=getNextShipTime(5);
+            bSpaceship = false;
+            //****************************************************************
+            // MAIN LOOP
+            long loopCtr = 0;
+            
+            Uint32 ticks = startTick;
+            long lastLoopCtr = 0;
+            while( quit == false && gameOver == false && numInvaders>0)
             { 
-                if( e.type == SDL_QUIT )
+                loopCtr++;
+                if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks+1000))
                 {
-                    quit = true; 
+                    printf("1 Second %ld loops\n", loopCtr-lastLoopCtr);
+                    ticks=SDL_GetTicks();
+                    lastLoopCtr = loopCtr;
+                }
+                while( SDL_PollEvent( &e ) )
+                { 
+                    if( e.type == SDL_QUIT )
+                    {
+                        quit = true; 
+                    } 
+                    else if (e.type == SDL_KEYDOWN) {
+                        //printf("Key 0x%X\n",e.key.keysym.sym);
+                        switch (e.key.keysym.sym) {
+                            case SDLK_q:
+                            {
+                                quit = true;
+                                break;
+                            }
+                            default:
+                                break;
+                        }
+                    }
                 } 
-                else if (e.type == SDL_KEYDOWN) {
-                    //printf("Key 0x%X\n",e.key.keysym.sym);
-                    switch (e.key.keysym.sym) {
-                        case SDLK_q:
-                        {
-                        	quit = true;
-                        	break;
+
+                // use scancodes to get keyboard state to avoid repeat delay
+                const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
+                if (currentKeyStates[SDL_SCANCODE_LEFT]) {
+                    if (cannon->getX() >= cannonSpeed) {
+                        cannon->setVel(0-cannonSpeed, 0);
+                    } else {
+                        cannon->setVel( 0, 0);
+                    }
+                } else if (currentKeyStates[SDL_SCANCODE_RIGHT]) {
+                    if (cannon->getX() < (SWIDTH-cannon->getW())) {
+                        cannon->setVel(cannonSpeed, 0);
+                    } else {
+                        cannon->setVel( 0, 0);
+                    }
+                } else {
+                    cannon->setVel( 0, 0);
+                }
+
+                if (!laserCooling || SDL_TICKS_PASSED(SDL_GetTicks(),laserCoolTicks)) {
+                    if (currentKeyStates[SDL_SCANCODE_SPACE]) {
+                        if (!bLaser) {
+                            bLaser = true;
+                            laser->setPos(cannon->getX()+6*ZM, SCANNON);
+                            laser->setVel(0,laserSpeed);
                         }
-                        default:
-                        	break;
+                    }
+                    laserCooling = false;
+                }
+
+                // =======================================================================
+                //Clear screen
+                SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
+                SDL_RenderClear( gRenderer );
+
+                SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );
+
+                for (int i=0;i<ZM; i++) {
+                    SDL_RenderDrawLine(gRenderer, 0, SBOT-ZM+i, SWIDTH, SBOT-ZM+i);
+                }
+
+                // Render The top-line
+                renderText("SCORE<1>  HI-SCORE  SCORE<2>", 0, 0);
+
+                char numstr[4];
+                snprintf(numstr, 2, "%d", cannonsRemaining+1);
+                renderText(numstr, 4, SBOT/ZM+1);
+                for (int i=0;i<cannonsRemaining;i++) {
+                    SDL_Rect dst = {24*ZM + 24*i*ZM, SBOT, cannon->getW(), cannon->getH()};
+                    SDL_RenderCopy( gRenderer, sheet, &cannonSSPos, &dst );
+                }
+
+                char scorestr[10];
+                snprintf(scorestr, 8, "%04d", gScore1);
+                renderText(scorestr, 16, 16);
+                snprintf(scorestr, 8, "%04d", gHiScore);
+                renderText(scorestr, 96, 16);
+                snprintf(scorestr, 8, "%04d", gScore2);
+                renderText(scorestr, 176, 16);
+
+                drawBarriers();
+
+                // Draw cannon
+                cannon->update();
+                cannon->draw();
+
+                // decide on spaceship appearing
+                if (!bSpaceship) {
+                    if (SDL_TICKS_PASSED(SDL_GetTicks(), nextShip)) {
+                        bSpaceship = true;
+                        spaceshipDir = ((rand() % 2)*2) - 1; // 1 or -1
+                        spaceship->setVel(spaceshipDir * spaceshipSpeed, 0);
+                        if (spaceshipDir == 1) {
+                            spaceship->setPos(0, 36*ZM);
+                        } else if (spaceshipDir == -1) {
+                            spaceship->setPos(SWIDTH, 36*ZM);
+                        } else {
+                            printf("error\n");
+                        }
                     }
                 }
-            } 
-
-            // use scancodes to get keyboard state to avoid repeat delay
-            const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
-            if (currentKeyStates[SDL_SCANCODE_LEFT]) {
-            	if (cannon->getX() >= cannonSpeed) {
-            		cannon->setVel(0-cannonSpeed, 0);
-            	} else {
-            		cannon->setVel( 0, 0);
-            	}
-            } else if (currentKeyStates[SDL_SCANCODE_RIGHT]) {
-            	if (cannon->getX() < (SWIDTH-cannon->getW())) {
-            		cannon->setVel(cannonSpeed, 0);
-            	} else {
-            		cannon->setVel( 0, 0);
-            	}
-            } else {
-            	cannon->setVel( 0, 0);
-            }
-
-            if (laserCoolCount>0) {
-                laserCoolCount--;
-            } else {
-                if (currentKeyStates[SDL_SCANCODE_SPACE]) {
-                    if (!bLaser) {
-                        bLaser = true;
-                        laser->setPos(cannon->getX()+6*ZM, SCANNON);
-                        laser->setVel(0,laserSpeed);
+                // draw and update spaceship if it has appeared
+                if (bSpaceship) {
+                    spaceship->update();
+                    spaceship->draw();
+                    if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
+                        bSpaceship = false;
+                        nextShip=getNextShipTime(0);
                     }
                 }
-            }
 
-            // =======================================================================
-            //Clear screen
-            SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
-            SDL_RenderClear( gRenderer );
+                // laser/bullet update if fired
+                if (bLaser) {
+                    laser->draw();
+                    laser->update();
+                    int lx = laser->getX();
+                    int ly = laser->getY();
+                    // check for invaders hit
+                    for (int i=0; i<NI; i++) {
+                        if (inv[i]->dead) continue;
+                        SDL_Rect *ipos = inv[i]->getPos();
+                        if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
+                            // hit
+                            //printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
+                            invVel = inv[i]->getVX();
+                            inv[i]->dead = true;
+                            numInvaders--;
+                            invAnimTime -= invSpeedMultiplier;
+                            if (invVel>0) {
+                                invVel+=0.1;
+                            } else {
+                                invVel-=0.1;
+                            }
+                            
+                            for (int v=0; v<NI; v++) {
+                                if (inv[v] && !inv[v]->dead) {
+                                    inv[v]->setAnimTime(invAnimTime);
+                                    inv[v]->setFrameTime(invAnimTime);
+                                    inv[v]->setVel(invVel,0);
+                                }
+                            }
+                            bLaser = false;
+                            gScore1 += 7; if (i<11) gScore1 += 8;
 
-            SDL_SetRenderDrawColor( gRenderer, 0x00, 0xFF, 0x00, 0xFF );
+                            iexplosion->setPos(ipos->x, ipos->y);
+                            explosionTicks = SDL_GetTicks() + explosionTime;
+                            laserCoolTicks = SDL_GetTicks() + explosionTime;
+                            laserCooling = true;
+                            break;
+                        }
+                    }
+                    // spaceship
+                    if (bSpaceship) {
+                        SDL_Rect *sspos = spaceship->getPos();
+                        if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
+                            // hit
+                            //printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
+                            bSpaceship = false;
+                            nextShip=getNextShipTime(0);
+                            gScore1 += 100;
+                            iexplosion->setPos(lx-6*ZM, ly-8*ZM);
+                            explosionTicks = SDL_GetTicks() + explosionTime;
+                            laserCoolTicks = SDL_GetTicks() + explosionTime;
+                            laserCooling = true;
+                        }
+                    }
 
-            for (int i=0;i<ZM; i++) {
-            	SDL_RenderDrawLine(gRenderer, 0, SBOT-ZM+i, SWIDTH, SBOT-ZM+i);
-            }
+                    if (checkHitBarrier()) {
+                        //printf("Hit barrier\n");
+                        bLaser=false;
+                        laserCoolTicks = SDL_GetTicks() + 200;
+                        laserCooling = true;
+                    }
 
-            // Render The top-line
-            renderText("SCORE<1>  HI-SCORE  SCORE<2>", 0, 0);
+                    if (laser->getY()<32*ZM) {
+                        bLaser = false;
+                    }
+                } // if laser fired
 
-            char numstr[4];
-            snprintf(numstr, 2, "%d", cannonsRemaining+1);
-            renderText(numstr, 0, SBOT+1);
-            for (int i=0;i<cannonsRemaining;i++) {
-            	SDL_Rect dst = {16*ZM + 16*i*ZM, SBOT, cannon->getW(), cannon->getH()};
-                SDL_RenderCopy( gRenderer, sheet, &cannonSSPos, &dst );
-            }
-
-            char scorestr[10];
-            snprintf(scorestr, 8, "%04d", gScore1);
-            renderText(scorestr, 16, 16);
-            snprintf(scorestr, 8, "%04d", gHiScore);
-            renderText(scorestr, 96, 16);
-            snprintf(scorestr, 8, "%04d", gScore2);
-            renderText(scorestr, 176, 16);
-
-            drawBarriers();
-
-            // Draw cannon
-            cannon->update();
-            cannon->draw();
-
-            // decide on spaceship appearing
-            if (!bSpaceship) {
-            	if ((rand() % 1000) == 0) {
-            		bSpaceship = true;
-            		spaceshipDir = ((rand() % 2)*2) - 1; // 1 or -1
-            		spaceship->setVel(spaceshipDir * spaceshipSpeed, 0);
-            		if (spaceshipDir == 1) {
-            			spaceship->setPos(0, 36*ZM);
-            		} else if (spaceshipDir == -1) {
-            			spaceship->setPos(SWIDTH, 36*ZM);
-            		} else {
-            			printf("error\n");
-            		}
-            	}
-            }
-            // spaceship
-            if (bSpaceship) {
-				spaceship->update();
-				spaceship->draw();
-	            if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) bSpaceship = false;
-            }
-
-            // laser/bullet update if fired
-            if (bLaser) {
-				laser->draw();
-				laser->update();
-				int lx = laser->getX();
-				int ly = laser->getY();
-				// check for invaders hit
-				for (int i=0; i<NI; i++) {
-					if (inv[i]->dead) continue;
-					SDL_Rect *ipos = inv[i]->getPos();
-					if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
-						// hit
-						//printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
-						inv[i]->dead = true;
-						numInvaders--;
-						bLaser = false;
-						gScore1 += 7; if (i<11) gScore1 += 8;
-
-						iexplosion->setPos(ipos->x, ipos->y);
-						countIExplosion = 10;
-						break;
-					}
-				}
-				// spaceship
-				if (bSpaceship) {
-					SDL_Rect *sspos = spaceship->getPos();
-					if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
-						// hit
-						//printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
-						bSpaceship = false;
-						gScore1 += 100;
-
-						iexplosion->setPos(lx-6*ZM, ly-8*ZM);
-						countIExplosion = 10;
-					}
-				}
-
-                if (checkHitBarrier()) {
-                    //printf("Hit barrier\n");
-                    bLaser=false;
-                    laserCoolCount = 200;
+                // Decide on Missile fire
+                {
+                    if ((rand() % 500) == 0) {
+                    }
                 }
 
-				if (laser->getY()<32*ZM) {
-					bLaser = false;
-				}
-            }
-
-
-            // Move Invaders
-            bool revdir = false;
-            bool hitbottom = false;
-            for (int i=0;i<NI;i++) {
-                if (inv[i] && inv[i]->getVX()>0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
-                    revdir = true;
-                    break;
-                }
-                if (inv[i] && inv[i]->getVX()<0 && inv[i]->getX() <= invVel) {
-                    revdir = true;
-                    break;
-                }
-            }
-            if (revdir) {
+                // Move Invaders
+                bool revdir = false;
+                bool hitbottom = false;
                 for (int i=0;i<NI;i++) {
-                    if (inv[i]) {
-                        inv[i]->revVX();
-                        inv[i]->incY(16);
-                        if (inv[i]->getY() >= SCANNON) {
-                        	hitbottom = true;
+                    if (inv[i] && !inv[i]->dead) {
+                        if (inv[i]->getVX()>0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
+                            revdir = true;
+                            break;
+                        }
+                        if (inv[i]->getVX()<0 && inv[i]->getX() <= invVel) {
+                            revdir = true;
+                            break;
                         }
                     }
                 }
-            }
-            // Update and draw invaders
-            for (int i=0;i<NI;i++) {
-                if (inv[i] && !inv[i]->dead) {
-                    inv[i]->update();
-                    inv[i]->draw();
+                if (revdir) {
+                    for (int i=0;i<NI;i++) {
+                        if (inv[i] && !inv[i]->dead) {
+                            inv[i]->revVX();
+                            inv[i]->incY(16);
+                            if (inv[i]->getY() >= SCANNON) {
+                                hitbottom = true;
+                                printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
+                            }
+                        }
+                    }
                 }
-            }
-            if (countIExplosion) {
-            	iexplosion->draw();
-            	countIExplosion--;
-            }
+                // Update and draw invaders
+                for (int i=0;i<NI;i++) {
+                    if (inv[i] && !inv[i]->dead) {
+                        inv[i]->update();
+                        inv[i]->draw();
+                    }
+                }
+                if (explosionTicks>0) {
+                    iexplosion->draw();
+                    if (SDL_TICKS_PASSED(SDL_GetTicks(),explosionTicks)) {
+                        explosionTicks = 0;
+                    }
+                }
 
-            if (numInvaders == 0) {
-            	printf("Next wave ...\n");
-            }
-            if (hitbottom)
-            {
-            	printf("End\n");
-            }
+                if (numInvaders == 0) {
+                    printf("Next wave ...\n");
 
-//            char fpsstr[20];
-//            sprintf(fpsstr, "%4.2f", cannon->fps);
-//            renderText(fpsstr, 8,SCANNON+16);
+                }
+                if (hitbottom)
+                {
+                    gameOver = true;
+                }
 
-            //Update screen
-            SDL_RenderPresent( gRenderer );
+               char fpsstr[20];
+               sprintf(fpsstr, "%4.2f", cannon->fps);
+               renderText(fpsstr, 180,SCANNON/ZM+8);
+
+                //Update screen
+                SDL_RenderPresent( gRenderer );
+            }
         }
+
+        renderText("GAME OVER", 70, 120);
     }
 
     // CLOSE

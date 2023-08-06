@@ -3,16 +3,16 @@ CXX=g++
 RM=rm -f
 CPPFLAGS=-g -Wall 
 #-Wl,-subsystem,windows
-CPPFLAGS+=-I ../../SDL2/x86_64-w64-mingw32/include/SDL2 
-LDFLAGS=-L ../../SDL2/x86_64-w64-mingw32/lib/
-CPPFLAGS+=-I ../../SDL2_image/x86_64-w64-mingw32/include/SDL2 
-LDFLAGS+=-L ../../SDL2_image/x86_64-w64-mingw32/lib/
+CPPFLAGS+=-I C:/libraries/SDL2/x86_64-w64-mingw32/include/SDL2 
+LDFLAGS=-L C:/libraries/SDL2/x86_64-w64-mingw32/lib/
+CPPFLAGS+=-I C:/libraries/SDL2_image/x86_64-w64-mingw32/include/SDL2 
+LDFLAGS+=-L C:/libraries/SDL2_image/x86_64-w64-mingw32/lib/
 
 LDLIBS=-lmingw32 -lSDL2main -lSDL2 -lSDL2_image
 
 STATICLIBS=-lmingw32 -lSDL2main 
-STATICLIBS+=C:/Users/assif/git/SDL2/x86_64-w64-mingw32/lib/libSDL2.a 
-STATICLIBS+=C:/Users/assif/git/SDL2_image/x86_64-w64-mingw32/lib/libSDL2_image.a
+STATICLIBS+=C:/libraries/SDL2/x86_64-w64-mingw32/lib/libSDL2.a 
+STATICLIBS+=C:/libraries/SDL2_image/x86_64-w64-mingw32/lib/libSDL2_image.a
 STATICLIBS+=-mwindows -Wl,--dynamicbase -Wl,--nxcompat -Wl,--high-entropy-va -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid
 
 SPRITE_SRCS=../sdl_sprite/Sprite.cpp 
