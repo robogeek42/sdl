@@ -40,6 +40,14 @@ SDL_Renderer* gRenderer = NULL;
 // Imge to create a sprite from
 std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
 
+// Game Variables
+bool gQuit = false; 
+bool gGameOver = false;
+int gScore1 = 0;
+int gScore2 = 0;
+int gHiScore = 0;
+
+
 // Invaders
 Sprite *inv[NI];
 float invVel = 4.0;
@@ -69,7 +77,7 @@ SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
 Uint32 laserCoolTicks = 0;
 bool laserCooling = false;
-int laserUpdateTime = 4;
+int laserUpdateTime = 10;
 int laserSpeed = 0-1*ZM;
 
 // invader explosion
@@ -82,7 +90,11 @@ Uint32 explosionTime = 200;
 const int numMissiles = 3;
 Sprite *missile[numMissiles];
 SDL_Rect missileSSPos = {413, 77, 6, 12};
+int missileUpdateTime = 10;
 int numMissilesFired = 0;
+Uint32 missleRateLo = 500; // 100 ms
+Uint32 missleRateHi = 5000; // 100 ms
+int missileSpeed = 1*ZM;
 
 // Defence barriers
 // 22x16 ... grow to 28x16
@@ -123,10 +135,6 @@ Sprite *cexplosion[3];
 SDL_Rect cexplosionSSPos = {367, 75, 36, 16};
 
 SDL_Texture *sheet;
-
-int gScore1 = 0;
-int gScore2 = 0;
-int gHiScore = 0;
 
 bool myinit() 
 {
@@ -302,6 +310,16 @@ void setupFormation()
     iexplosion->setWrap(false);
     iexplosion->setSpriteZoom(ZM/2);
 
+    for (int i=0; i<numMissiles; i++) {
+        missile[i] = new Sprite(&missileSSPos);
+        missile[i]->setPos(0,0);
+        missile[i]->setAnimTime(0);
+        missile[i]->setFrameTime(missileUpdateTime);
+        missile[i]->setVel(0,missileSpeed);
+        missile[i]->setWrap(false);
+        missile[i]->setSpriteZoom(ZM/2);
+        missile[i]->dead = true;
+    }
 }
 
 void setupBariers() 
@@ -458,12 +476,131 @@ Uint32 getNextShipTime(int s)
     return ticks;
 }
 
+void processEvents() 
+{
+    SDL_Event e;
+
+    while( SDL_PollEvent( &e ) )
+    { 
+        if( e.type == SDL_QUIT )
+        {
+            gQuit = true; 
+        } 
+        else if (e.type == SDL_KEYDOWN) {
+            //printf("Key 0x%X\n",e.key.keysym.sym);
+            switch (e.key.keysym.sym) {
+                case SDLK_q:
+                {
+                    gQuit = true;
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    } 
+
+    // use scancodes to get keyboard state to avoid repeat delay
+    const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
+    if (currentKeyStates[SDL_SCANCODE_LEFT]) {
+        if (cannon->getX() >= cannonSpeed) {
+            cannon->setVel(0-cannonSpeed, 0);
+        } else {
+            cannon->setVel( 0, 0);
+        }
+    } else if (currentKeyStates[SDL_SCANCODE_RIGHT]) {
+        if (cannon->getX() < (SWIDTH-cannon->getW())) {
+            cannon->setVel(cannonSpeed, 0);
+        } else {
+            cannon->setVel( 0, 0);
+        }
+    } else {
+        cannon->setVel( 0, 0);
+    }
+
+    if (!laserCooling || SDL_TICKS_PASSED(SDL_GetTicks(),laserCoolTicks)) {
+        if (currentKeyStates[SDL_SCANCODE_SPACE]) {
+            if (!bLaser) {
+                bLaser = true;
+                laser->setPos(cannon->getX()+6*ZM, SCANNON);
+                laser->setVel(0,laserSpeed);
+            }
+        }
+        laserCooling = false;
+    }
+
+}
+
+// Get a list of invaders with nothing below them
+int invaderFireList[NILINE]; // maxium is number of columns
+int numInvadersInFireList=0;
+bool getInvaderFireList()
+{
+    numInvadersInFireList=0;
+    bool ret = false;
+    // go by column and find lowest invader in column, add to list
+    for (int col = 0; col < NILINE; col++)
+    {
+        int possInv = -1;
+        for (int row = 0; row < NIROWS; row++) 
+        {
+            int i = col + row * NILINE;
+            if (inv[i] && !inv[i]->dead) {
+                possInv = i;
+            }
+        }
+        if (possInv>=0) {
+            invaderFireList[col] = possInv;
+            numInvadersInFireList++;
+            ret = true;
+        }
+    }
+    return ret;
+}
+// Fire a missile from an Invader
+void fireNewMissile()
+{
+    if (numMissilesFired < numMissiles) {
+        numMissilesFired++;
+        // find an unfired missile
+        int m=-1;
+        for (int i=0; i<numMissiles; i++) 
+        {
+            if (missile[i]->dead) {
+                m=i;
+                break;
+            }
+        }
+        if (m>=0) 
+        {
+            if (!getInvaderFireList()) {
+                printf("Error - no invaders in fire list!\n");
+            }
+            int index = rand() % numInvadersInFireList;
+            if (index>=NILINE) {
+                printf("Error getting invader who fired missile\n");
+                return;
+            }
+            int invader = invaderFireList[index];
+            missile[m]->dead = false;
+            int invX = inv[invader]->getX();
+            int invY = inv[invader]->getY();
+            int missileX = invX + 4*ZM;
+            int missileY = invY + 8*ZM;
+            missile[m]->setPos(missileX, missileY);
+            //printf("Inv[%d] fires missile. Pos Inv = %d,%d Pos Missile = %d,%d\n", invader, invX, invY, missileX, missileY);
+        }
+    }
+}
+
+
 int main( int argc, char* args[] )
 {
 	bool initialised = false;
 	bool medialoaded = false;
 
     Uint32 startTick = 0;
+    Uint32 missleTimeoutTick = 0;
 
 	srand(time(0));
 
@@ -489,10 +626,8 @@ int main( int argc, char* args[] )
 
 	if (initialised && medialoaded)
     {
-        SDL_Event e; 
-        bool quit = false; 
-        bool gameOver = false;
         startTick = SDL_GetTicks();
+        missleTimeoutTick = SDL_GetTicks()+1000; // first missile will fire in 1sec
 
         Sprite::setRenderer(gRenderer);
 
@@ -506,7 +641,7 @@ int main( int argc, char* args[] )
         // {179, 226, 24, 16} Invader4 pos2
         sheet = Sprite::getSheet();
 
-        while (!quit) {
+        while (!gQuit) {
             setupFormation();
             setupBariers();
 
@@ -520,7 +655,7 @@ int main( int argc, char* args[] )
             
             Uint32 ticks = startTick;
             long lastLoopCtr = 0;
-            while( quit == false && gameOver == false && numInvaders>0)
+            while( gQuit == false && gGameOver == false && numInvaders>0)
             { 
                 loopCtr++;
                 if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks+1000))
@@ -529,54 +664,8 @@ int main( int argc, char* args[] )
                     ticks=SDL_GetTicks();
                     lastLoopCtr = loopCtr;
                 }
-                while( SDL_PollEvent( &e ) )
-                { 
-                    if( e.type == SDL_QUIT )
-                    {
-                        quit = true; 
-                    } 
-                    else if (e.type == SDL_KEYDOWN) {
-                        //printf("Key 0x%X\n",e.key.keysym.sym);
-                        switch (e.key.keysym.sym) {
-                            case SDLK_q:
-                            {
-                                quit = true;
-                                break;
-                            }
-                            default:
-                                break;
-                        }
-                    }
-                } 
 
-                // use scancodes to get keyboard state to avoid repeat delay
-                const Uint8* currentKeyStates = SDL_GetKeyboardState( NULL );
-                if (currentKeyStates[SDL_SCANCODE_LEFT]) {
-                    if (cannon->getX() >= cannonSpeed) {
-                        cannon->setVel(0-cannonSpeed, 0);
-                    } else {
-                        cannon->setVel( 0, 0);
-                    }
-                } else if (currentKeyStates[SDL_SCANCODE_RIGHT]) {
-                    if (cannon->getX() < (SWIDTH-cannon->getW())) {
-                        cannon->setVel(cannonSpeed, 0);
-                    } else {
-                        cannon->setVel( 0, 0);
-                    }
-                } else {
-                    cannon->setVel( 0, 0);
-                }
-
-                if (!laserCooling || SDL_TICKS_PASSED(SDL_GetTicks(),laserCoolTicks)) {
-                    if (currentKeyStates[SDL_SCANCODE_SPACE]) {
-                        if (!bLaser) {
-                            bLaser = true;
-                            laser->setPos(cannon->getX()+6*ZM, SCANNON);
-                            laser->setVel(0,laserSpeed);
-                        }
-                    }
-                    laserCooling = false;
-                }
+                processEvents();
 
                 // =======================================================================
                 //Clear screen
@@ -636,6 +725,34 @@ int main( int argc, char* args[] )
                     if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
                         bSpaceship = false;
                         nextShip=getNextShipTime(0);
+                    }
+                }
+
+                // Decide on Missile fire
+                {
+
+                    if (SDL_TICKS_PASSED(SDL_GetTicks(), missleTimeoutTick)) {
+                        if (numMissilesFired < numMissiles) {
+                            fireNewMissile();
+                            missleTimeoutTick += (rand() % (missleRateHi - missleRateLo)) + missleRateLo;
+                        }
+
+                    }
+                }
+
+                // Misile update if fired
+                if (numMissilesFired>0) {
+                    for (int m=0; m<numMissiles; m++) {
+                        if (!missile[m]->dead) {
+                            missile[m]->update();
+                            if (missile[m]->getY()>SBOT) {
+                                missile[m]->dead = true;
+                                numMissilesFired--;
+                            }
+                            if (!missile[m]->dead) { 
+                                missile[m]->draw();
+                            }
+                        }
                     }
                 }
 
@@ -707,12 +824,6 @@ int main( int argc, char* args[] )
                     }
                 } // if laser fired
 
-                // Decide on Missile fire
-                {
-                    if ((rand() % 500) == 0) {
-                    }
-                }
-
                 // Move Invaders
                 bool revdir = false;
                 bool hitbottom = false;
@@ -760,7 +871,7 @@ int main( int argc, char* args[] )
                 }
                 if (hitbottom)
                 {
-                    gameOver = true;
+                    gGameOver = true;
                 }
 
                char fpsstr[20];
