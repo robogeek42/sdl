@@ -829,16 +829,17 @@ int main( int argc, char* args[] )
                 bool hitbottom = false;
                 for (int i=0;i<NI;i++) {
                     if (inv[i] && !inv[i]->dead) {
-                        if (inv[i]->getVX()>0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
+                        if (invVel>0.0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
                             revdir = true;
                             break;
                         }
-                        if (inv[i]->getVX()<0 && inv[i]->getX() <= invVel) {
+                        if (invVel<0.0 && inv[i]->getX() <= (int)ceil(invVel)) {
                             revdir = true;
                             break;
                         }
                     }
                 }
+                // Hit wall and reversed direction
                 if (revdir) {
                     for (int i=0;i<NI;i++) {
                         if (inv[i] && !inv[i]->dead) {
@@ -851,6 +852,7 @@ int main( int argc, char* args[] )
                         }
                     }
                 }
+
                 // Update and draw invaders
                 for (int i=0;i<NI;i++) {
                     if (inv[i] && !inv[i]->dead) {
@@ -858,6 +860,7 @@ int main( int argc, char* args[] )
                         inv[i]->draw();
                     }
                 }
+
                 if (explosionTicks>0) {
                     iexplosion->draw();
                     if (SDL_TICKS_PASSED(SDL_GetTicks(),explosionTicks)) {
