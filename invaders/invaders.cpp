@@ -874,9 +874,9 @@ int main( int argc, char* args[] )
                     gGameOver = true;
                 }
 
-               char fpsstr[20];
-               sprintf(fpsstr, "%4.2f", cannon->fps);
-               renderText(fpsstr, 180,SCANNON/ZM+8);
+            //    char fpsstr[20];
+            //    sprintf(fpsstr, "%4.2f", cannon->fps);
+            //    renderText(fpsstr, 180,SCANNON/ZM+8);
 
                 //Update screen
                 SDL_RenderPresent( gRenderer );
