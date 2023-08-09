@@ -3,7 +3,7 @@ CXX=g++
 RM=rm -f
 CPPFLAGS=-g -Wall -I/usr/include/SDL2
 LDFLAGS=-g
-LDLIBS=-lSDL2 -lSDL2_image -lSDL2_gfx
+LDLIBS=-lSDL2 -lSDL2_image -lSDL2_gfx -l SDL2_mixer
 
 SPRITE_SRCS=../sdl_sprite/Sprite.cpp 
 SPRITE_OBJS=$(subst .cpp,.o,$(SPRITE_SRCS))

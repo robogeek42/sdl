@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_mixer.h>
 #include <stdio.h>
 #include <string>
 #include "../sdl_sprite/Sprite.h"
@@ -51,10 +52,12 @@ int gHiScore = 0;
 
 // Invaders
 Sprite *inv[NI];
-float invVel = 4.0;
-const int invSpeedMultiplier = 7;
+float invVel; // set in setupFormation
+const int invSpeedMultiplier = 16;
 int invAnimTime = 50+invSpeedMultiplier*NI;
 int numInvaders = NI;
+Uint32 invaderSoundTimeoutTick;
+int invVerticalDrop = 12*ZM;
 
 // Cannon
 Sprite *cannon;
@@ -99,35 +102,35 @@ int missileSpeed = 1*ZM;
 
 // Defence barriers
 // 22x16 ... grow to 28x16
-const int bw = 28;
+const int bw = 24;
 const int bh = 16;
 char bdata[] = {
-    0,0,0,0,0,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,0,0,0,0,0, // 0
-    0,0,0,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,0,0,0, // 1
-    0,0,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,0,0, // 2
-    0,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,0, // 3
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1, // 8
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,0,0,0, 0,0,0,0,0,0, 0,0,0,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1,
-    1,1,1,1,1,1,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,1,1,1,1,1,1 // 16
+    0,0,0,0,0,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,0,0,0,0,0, // 0
+    0,0,0,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,0,0,0, // 1
+    0,0,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,0,0, // 2
+    0,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,0, // 3
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1, // 8
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1, 1,1, 1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,0,0,0, 0,0, 0,0,0,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,0,0,0,0, 0,0, 0,0,0,0,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0, 0,0,0,0,0,1,1,1,1,1,1,
+    1,1,1,1,1,1,0,0,0,0,0, 0,0, 0,0,0,0,0,1,1,1,1,1,1 // 16
 };
 const int numBarriers = 4;
 SDL_Texture *barrier[numBarriers];
 SDL_Rect barrierSSPos = {316, 13, 44, 32};
 SDL_Surface *barrierSurface[numBarriers];
 SDL_Rect barrierPos[numBarriers] = 
-    {{ 23      *ZM,SBARRIER, bw*ZM,bh*ZM},
-     {(23+50)  *ZM,SBARRIER, bw*ZM,bh*ZM},
-     {(23+50*2)*ZM,SBARRIER, bw*ZM,bh*ZM},
-     {(23+50*3)*ZM,SBARRIER, bw*ZM,bh*ZM}
+    {{ 28      *ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(28+46)  *ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(28+46*2)*ZM,SBARRIER, bw*ZM,bh*ZM},
+     {(28+46*3)*ZM,SBARRIER, bw*ZM,bh*ZM}
     };
 unsigned char *barrierPixels[numBarriers];
 
@@ -143,23 +146,25 @@ typedef struct {
     SDL_AudioSpec wavSpec;
     Uint32 wavLength;
     Uint8 *wavBuffer;
+    Mix_Chunk* sample;
 } SoundInfo;
 
 #define NUM_SOUNDS 9
 SoundInfo sounds[NUM_SOUNDS];
+// note: shoot/invaderkilled were the wrong way round in the downloaded samples - hack here
 #define SOUND_EXPLOSION 0
 #define SOUND_UFO_HIGHPITCH 1
 #define SOUND_UFO_LOWPITCH 2
-#define SOUND_INVADERKILLED 3
+#define SOUND_SHOOT 3
 #define SOUND_FASTINVADER1 4
 #define SOUND_FASTINVADER2 5
 #define SOUND_FASTINVADER3 6
 #define SOUND_FASTINVADER4 7
-#define SOUND_SHOOT 8
+#define SOUND_INVADERKILLED 8
 std::string soundFiles[NUM_SOUNDS] = {
     "explosion.wav",
     "ufo_highpitch.wav",
-    "ufo_lowpitch.wav",
+    "ufo_lowpitch_7.5secs.wav",
     "invaderkilled.wav",
     "fastinvader1.wav",    
     "fastinvader2.wav",    
@@ -169,6 +174,7 @@ std::string soundFiles[NUM_SOUNDS] = {
 };
 SDL_AudioDeviceID gAudioDeviceId;
 bool gAudioEnabled = true;
+int gSpaceshipChannel = 0;
 
 bool myinit() 
 {
@@ -219,6 +225,27 @@ bool myinit()
                 }
 
             }
+
+            if (gAudioEnabled)
+            {
+                // Set up the audio stream
+                int result = Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 512);
+                if( result < 0 )
+                {
+                    printf("Unable to open audio: %s\n", SDL_GetError());
+                    gAudioEnabled = false;       
+                } else {
+                    result = Mix_AllocateChannels(4);
+                    if (result < 0) {
+                        printf("Unable to allocate mixing channels: %s\n", SDL_GetError());
+                        gAudioEnabled = false;
+                    } else {
+                        int currentVolume = Mix_Volume(-1, -1);
+                        printf("Current Volume %d\n", currentVolume);
+                        Mix_Volume(-1,32);
+                    }
+                }
+            }
         }
     }
 
@@ -254,19 +281,14 @@ bool loadMedia()
         for (int s = 0; s < NUM_SOUNDS; s++) {
             sounds[s].name = soundFiles[s];
             std::string path = gAudioPath + sounds[s].name;
-            if (SDL_LoadWAV(path.c_str(), &(sounds[s].wavSpec), &(sounds[s].wavBuffer), &(sounds[s].wavLength)) == NULL) {
+            sounds[s].sample = Mix_LoadWAV(path.c_str());
+            if (sounds[s].sample == NULL) 
+            {
                 printf("Error loading Audio file %s\n", path.c_str());
                 gAudioEnabled = false;
             }
         }
 
-        // Initialise Audio Device using one of the WAVs spec - assuming they are all the same :/
-        // open audio device
-        gAudioDeviceId = SDL_OpenAudioDevice(NULL, 0, &(sounds[0].wavSpec), NULL, 0);
-        if (gAudioDeviceId < 1) {
-            printf("Error opening Audio Device\n");
-            gAudioEnabled = false;
-        }
     }
 
     return success;
@@ -290,7 +312,7 @@ void renderText(const char *text, int X, int Y) {
 void setupFormation() 
 {
     numInvaders = NI;
-    invVel = 4.0;
+    invVel = 3.0*ZM;
     invAnimTime = 50+invSpeedMultiplier*NI;
 
     SDL_Rect sspos1, sspos2;
@@ -331,6 +353,7 @@ void setupFormation()
         inv[i]->setVel(invVel,0);
         inv[i]->setWrap(false);
         inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
+        // inv[i]->delayStartTime(i*5);
     }
     
     cannon = new Sprite(&cannonSSPos);
@@ -438,15 +461,15 @@ void drawBarriers()
 /* return -1 if not hit any
    or barrier number if it hits
 */
-const int hsw=5; const int hs_leftoff=2;
+const int hsw=7; const int hs_leftoff=3;
 const int hsh=6;
 unsigned char hitshape[hsh][hsw] = {
-    {0,0,0,0,0},
-    {1,0,1,0,1},
-    {0,1,1,1,0},
-    {0,0,1,1,1},
-    {0,1,1,1,0},
-    {0,0,1,1,0},
+    {0,0,0,1,1,1,0},
+    {1,0,1,1,1,0,0},
+    {0,1,1,1,1,1,1},
+    {0,0,1,1,1,0,0},
+    {0,1,1,1,1,0,1},
+    {1,0,1,1,1,1,0},
 };
 bool checkHitBarrier() 
 {
@@ -523,7 +546,7 @@ Uint32 getNextShipTime(int s)
     if (s>0) {
         secs = s;
     } else {
-        secs = s + rand()%25;
+        secs = 5 + rand()%25;
     } 
     ticks = SDL_GetTicks() + secs*1000;
     printf("Next ship in %ds\n",secs);
@@ -579,8 +602,7 @@ void processEvents()
                 laser->setPos(cannon->getX()+6*ZM, SCANNON);
                 laser->setVel(0,laserSpeed);
                 if (gAudioEnabled) {
-                    SDL_QueueAudio(gAudioDeviceId, sounds[SOUND_INVADERKILLED].wavBuffer, sounds[SOUND_INVADERKILLED].wavLength);
-                    SDL_PauseAudioDevice(gAudioDeviceId, 0);
+                    Mix_PlayChannel(-1, sounds[SOUND_SHOOT].sample, 0);
                 }
             }
         }
@@ -657,7 +679,7 @@ int main( int argc, char* args[] )
 	bool initialised = false;
 	bool medialoaded = false;
 
-    Uint32 startTick = 0;
+    Uint32 ticks = 0;
     Uint32 missleTimeoutTick = 0;
 
 	srand(time(0));
@@ -684,7 +706,6 @@ int main( int argc, char* args[] )
 
 	if (initialised && medialoaded)
     {
-        startTick = SDL_GetTicks();
         missleTimeoutTick = SDL_GetTicks()+1000; // first missile will fire in 1sec
 
         Sprite::setRenderer(gRenderer);
@@ -705,13 +726,14 @@ int main( int argc, char* args[] )
 
             // set a time before the mystery ship appears
             // between 5 secs and 30 secs
-            nextShip=getNextShipTime(5);
+            nextShip=getNextShipTime(0);
             bSpaceship = false;
             //****************************************************************
             // MAIN LOOP
             long loopCtr = 0;
             
-            Uint32 ticks = startTick;
+            ticks = SDL_GetTicks();
+            invaderSoundTimeoutTick = SDL_GetTicks() + invAnimTime;
             long lastLoopCtr = 0;
             while( gQuit == false && gGameOver == false && numInvaders>0)
             { 
@@ -719,11 +741,17 @@ int main( int argc, char* args[] )
                 if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks+1000))
                 {
                     printf("1 Second %ld loops\n", loopCtr-lastLoopCtr);
-                    ticks=SDL_GetTicks();
+                    ticks = SDL_GetTicks();
                     lastLoopCtr = loopCtr;
                 }
 
                 processEvents();
+
+                if (SDL_TICKS_PASSED(SDL_GetTicks(), invaderSoundTimeoutTick)) 
+                {
+                    Mix_PlayChannel(-1, sounds[SOUND_FASTINVADER1].sample, 0);
+                    invaderSoundTimeoutTick = SDL_GetTicks() + invAnimTime;
+                }
 
                 // =======================================================================
                 //Clear screen
@@ -774,6 +802,9 @@ int main( int argc, char* args[] )
                         } else {
                             printf("error\n");
                         }
+                        if (gAudioEnabled) {
+                            gSpaceshipChannel = Mix_PlayChannel(-1, sounds[SOUND_UFO_LOWPITCH].sample, 0);
+                        }                        
                     }
                 }
                 // draw and update spaceship if it has appeared
@@ -836,7 +867,9 @@ int main( int argc, char* args[] )
                             } else {
                                 invVel-=0.1;
                             }
-                            
+                            if (gAudioEnabled) {
+                                Mix_PlayChannel(-1, sounds[SOUND_INVADERKILLED].sample, 0);
+                            }                            
                             for (int v=0; v<NI; v++) {
                                 if (inv[v] && !inv[v]->dead) {
                                     inv[v]->setAnimTime(invAnimTime);
@@ -867,6 +900,10 @@ int main( int argc, char* args[] )
                             explosionTicks = SDL_GetTicks() + explosionTime;
                             laserCoolTicks = SDL_GetTicks() + explosionTime;
                             laserCooling = true;
+                            if (gAudioEnabled) {
+                                Mix_HaltChannel(gSpaceshipChannel);
+                                Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
+                            }
                         }
                     }
 
@@ -918,7 +955,7 @@ int main( int argc, char* args[] )
                     for (int i=0;i<NI;i++) {
                         if (inv[i] && !inv[i]->dead) {
                             inv[i]->revVX();
-                            inv[i]->incY(8*ZM);
+                            inv[i]->incY(invVerticalDrop);
                             if (inv[i]->getY() >= SCANNON) {
                                 hitbottom = true;
                                 //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);

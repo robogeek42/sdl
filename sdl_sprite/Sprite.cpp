@@ -469,3 +469,14 @@ void Sprite::setFrameTime(Uint32 ms)
     frame_update_time_ms = ms;
 }
 
+void Sprite::delayStartTime(Uint32 ms) 
+{
+    last_anim_update_tick += ms;
+    last_update_tick += ms;
+}
+
+void Sprite::setMoveSmooth(int sx, int sy) 
+{
+    smoothToX = sx;
+    smoothToY = sy;
+}

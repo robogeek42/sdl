@@ -59,6 +59,8 @@ public:
     bool addAnimSprite(SDL_Rect *ssrect);
     void setAnimTime(Uint32 ms);
     void setFrameTime(Uint32 ms);
+    void delayStartTime(Uint32 ms);
+    void setMoveSmooth(int sx, int sy);
 
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
@@ -129,6 +131,9 @@ private:
     Uint32 lifetime; // lifetime in ticks. If == 0 then it does not die.
     bool lifetimeFade;
     float fadeValue;
+
+    int smoothToX;
+    int smoothToY;
 
     SDL_Texture* loadTexture( std::string path );
     
