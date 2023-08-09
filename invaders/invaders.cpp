@@ -24,8 +24,12 @@ const int IGHEIGHT = IGIH*NIROWS;
 const int IGLEFT = (SWIDTH - IGWIDTH)/2; // Gap to left of invaders at start
 const int NI = NILINE * NIROWS;
 
-// Globally used font
+// Resources
 std::string gInvadersFontSheetPath = "resources/textures/space_invaders_font.png";
+std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
+std::string gAudioPath = "resources/sounds/";
+
+// Globally used font
 SDL_Texture *gFontSheet;
 
 //Starts up SDL and creates window
@@ -36,9 +40,6 @@ SDL_Window* gWindow = NULL;
 
 //The window renderer
 SDL_Renderer* gRenderer = NULL;
-
-// Imge to create a sprite from
-std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
 
 // Game Variables
 bool gQuit = false; 
@@ -77,7 +78,7 @@ SDL_Rect laserSSPos = {8, 64, 2, 8};
 bool bLaser = false;
 Uint32 laserCoolTicks = 0;
 bool laserCooling = false;
-int laserUpdateTime = 10;
+int laserUpdateTime = 2;
 int laserSpeed = 0-1*ZM;
 
 // invader explosion
@@ -136,11 +137,44 @@ SDL_Rect cexplosionSSPos = {367, 75, 36, 16};
 
 SDL_Texture *sheet;
 
+// Sounds
+typedef struct {
+    std::string name;
+    SDL_AudioSpec wavSpec;
+    Uint32 wavLength;
+    Uint8 *wavBuffer;
+} SoundInfo;
+
+#define NUM_SOUNDS 9
+SoundInfo sounds[NUM_SOUNDS];
+#define SOUND_EXPLOSION 0
+#define SOUND_UFO_HIGHPITCH 1
+#define SOUND_UFO_LOWPITCH 2
+#define SOUND_INVADERKILLED 3
+#define SOUND_FASTINVADER1 4
+#define SOUND_FASTINVADER2 5
+#define SOUND_FASTINVADER3 6
+#define SOUND_FASTINVADER4 7
+#define SOUND_SHOOT 8
+std::string soundFiles[NUM_SOUNDS] = {
+    "explosion.wav",
+    "ufo_highpitch.wav",
+    "ufo_lowpitch.wav",
+    "invaderkilled.wav",
+    "fastinvader1.wav",    
+    "fastinvader2.wav",    
+    "fastinvader3.wav",    
+    "fastinvader4.wav",    
+    "shoot.wav"
+};
+SDL_AudioDeviceID gAudioDeviceId;
+bool gAudioEnabled = true;
+
 bool myinit() 
 {
 
     //Initialise SDL
-    if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
+    if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO ) < 0 )
     {
         printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
         return false;
@@ -213,6 +247,26 @@ bool loadMedia()
     else
     {
         printf("Failed to load font sheet\n");
+    }
+
+    if (gAudioEnabled) {
+        printf("Loading Audio Files\n");
+        for (int s = 0; s < NUM_SOUNDS; s++) {
+            sounds[s].name = soundFiles[s];
+            std::string path = gAudioPath + sounds[s].name;
+            if (SDL_LoadWAV(path.c_str(), &(sounds[s].wavSpec), &(sounds[s].wavBuffer), &(sounds[s].wavLength)) == NULL) {
+                printf("Error loading Audio file %s\n", path.c_str());
+                gAudioEnabled = false;
+            }
+        }
+
+        // Initialise Audio Device using one of the WAVs spec - assuming they are all the same :/
+        // open audio device
+        gAudioDeviceId = SDL_OpenAudioDevice(NULL, 0, &(sounds[0].wavSpec), NULL, 0);
+        if (gAudioDeviceId < 1) {
+            printf("Error opening Audio Device\n");
+            gAudioEnabled = false;
+        }
     }
 
     return success;
@@ -524,6 +578,10 @@ void processEvents()
                 bLaser = true;
                 laser->setPos(cannon->getX()+6*ZM, SCANNON);
                 laser->setVel(0,laserSpeed);
+                if (gAudioEnabled) {
+                    SDL_QueueAudio(gAudioDeviceId, sounds[SOUND_INVADERKILLED].wavBuffer, sounds[SOUND_INVADERKILLED].wavLength);
+                    SDL_PauseAudioDevice(gAudioDeviceId, 0);
+                }
             }
         }
         laserCooling = false;
@@ -824,30 +882,48 @@ int main( int argc, char* args[] )
                     }
                 } // if laser fired
 
-                // Move Invaders
+                // Move Invaders (will be moved VX pixels by update() method below)
+                // Check if invader WILL go beyond screen in next update and change direction if so
                 bool revdir = false;
                 bool hitbottom = false;
                 for (int i=0;i<NI;i++) {
+                    // Check Right Side when Invaders are moving RIGHT
                     if (inv[i] && !inv[i]->dead) {
-                        if (invVel>0.0 && inv[i]->getX() >= (SWIDTH - inv[i]->getW())) {
-                            revdir = true;
-                            break;
-                        }
-                        if (invVel<0.0 && inv[i]->getX() <= (int)ceil(invVel)) {
-                            revdir = true;
-                            break;
+                        if (invVel>0.0)
+                        { 
+                            if ((inv[i]->getX() + inv[i]->getW() + invVel) > SWIDTH) 
+                            {
+                                revdir = true;
+                                //printf("At Right Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
+                                break;
+                            }
+                        } else 
+                        // Check left side when invaders are moving LEFT (-ve Vel)
+                        if (invVel<0.0) 
+                        { 
+                            if ((inv[i]->getX() + invVel) < 0) 
+                            {
+                                revdir = true;
+                                //printf("At Left Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
+                                break;
+                            }
+                        } else {
+                            abort();
                         }
                     }
                 }
                 // Hit wall and reversed direction
                 if (revdir) {
+                    invVel = -1.0 * invVel;
                     for (int i=0;i<NI;i++) {
                         if (inv[i] && !inv[i]->dead) {
                             inv[i]->revVX();
-                            inv[i]->incY(16);
+                            inv[i]->incY(8*ZM);
                             if (inv[i]->getY() >= SCANNON) {
                                 hitbottom = true;
-                                printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
+                                //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
+                                //abort();
+                                break;
                             }
                         }
                     }
@@ -898,7 +974,12 @@ int main( int argc, char* args[] )
 	        if (inv[i]) inv[i]->destroy();
 	    }
 	}
-
+    if (gAudioEnabled) {
+        SDL_CloseAudioDevice(gAudioDeviceId);
+        for (int s = 0; s < NUM_SOUNDS; s++) {
+            SDL_FreeWAV(sounds[s].wavBuffer);
+        }
+    }
     //Destroy window
     SDL_DestroyRenderer( gRenderer );
     SDL_DestroyWindow( gWindow );
