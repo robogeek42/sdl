@@ -471,13 +471,16 @@ unsigned char hitshape[hsh][hsw] = {
     {0,1,1,1,1,0,1},
     {1,0,1,1,1,1,0},
 };
-bool checkHitBarrier() 
+
+// Check for hit of barrier at position cp
+// hsYDir is -1 if the missile is moving down, or +1 if the laser is moving up
+bool checkHitBarrier(SDL_Rect *cp, int hsYDir) 
 {
     int barrierHit = -1;
     bool hit = false;
     // first check bounding boxes
 	for (int b = 0 ; b < numBarriers ; b++ ) {
-        SDL_Rect *lp = laser->getPos();
+        SDL_Rect *lp = cp; //laser->getPos();
         if (lp->x >= barrierPos[b].x &&
             lp->x <  barrierPos[b].x+barrierPos[b].w &&
             lp->y <  barrierPos[b].y+barrierPos[b].h &&
@@ -492,8 +495,8 @@ bool checkHitBarrier()
     if (barrierHit>=0) {
         // check pixel location at end of laser
         // laser pos in terms of zoomed screen
-        int x = laser->getPos()->x;
-        int y = laser->getPos()->y;
+        int x = cp->x; // laser->getPos()->x;
+        int y = cp->y; // laser->getPos()->y;
         // subtract barrier pos
         x -= barrierPos[barrierHit].x;
         y -= barrierPos[barrierHit].y;
@@ -501,6 +504,7 @@ bool checkHitBarrier()
         x /= ZM; 
         y /= ZM;
         
+        // Code below checks 3 pixels for a hit to avoid problematic missing of single pixels
         int newx=x;
         for (int i = x-1; i<=x+1; i++) {
             unsigned char *ptr = barrierPixels[barrierHit]+(y*bw + i)*4;
@@ -516,7 +520,7 @@ bool checkHitBarrier()
             x = newx;
             for (int j=0; j<=hsh; j++) {
                 for (int i=0; i<hsw; i++) {
-                    int yoff = y - hsh + j + 1;
+                    int yoff = y - (hsYDir*hsh) + (hsYDir*j) + (hsYDir*1);
                     int xoff = x - hs_leftoff + i;
 
                     if(hitshape[j][i]==1 && xoff < bw && xoff >= 0 && yoff < bh && yoff >=0) {
@@ -838,6 +842,19 @@ int main( int argc, char* args[] )
                                 missile[m]->dead = true;
                                 numMissilesFired--;
                             }
+                            if (checkHitBarrier(missile[m]->getPos(), -1)) {
+                                missile[m]->dead = true;
+                                numMissilesFired--;
+                            }
+                            // check if it hits the cannon
+                            int mx = missile[m]->getX();
+                            int my = missile[m]->getY();
+                            if (my >= SCANNON+4*ZM && mx >= cannonX && mx < cannonX+cannon->getW()) {
+                                missile[m]->dead = true;
+                                numMissilesFired--;
+                                Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
+                            }
+
                             if (!missile[m]->dead) { 
                                 missile[m]->draw();
                             }
@@ -907,7 +924,7 @@ int main( int argc, char* args[] )
                         }
                     }
 
-                    if (checkHitBarrier()) {
+                    if (checkHitBarrier(laser->getPos(), +1)) {
                         //printf("Hit barrier\n");
                         bLaser=false;
                         laserCoolTicks = SDL_GetTicks() + 200;
