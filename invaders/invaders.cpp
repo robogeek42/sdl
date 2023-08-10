@@ -27,7 +27,7 @@ const int NI = NILINE * NIROWS;
 
 // Resources
 std::string gInvadersFontSheetPath = "resources/textures/space_invaders_font.png";
-std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.jpg";
+std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.png";
 std::string gAudioPath = "resources/sounds/";
 
 // Globally used font
@@ -66,6 +66,7 @@ int cannonX = 0;
 int cannonUpdateTime = 20;
 int cannonSpeed = 2*ZM;
 int cannonsRemaining = 2;
+bool bCannonHit = false;
 
 // Spaceship
 Sprite *spaceship;
@@ -93,11 +94,32 @@ Uint32 explosionTime = 200;
 // invader missile
 const int numMissiles = 3;
 Sprite *missile[numMissiles];
-SDL_Rect missileSSPos = {413, 77, 6, 12};
-int missileUpdateTime = 10;
+const int missileTypes = 3;
+const int missileFrames = 4;
+SDL_Rect missileSSPos[missileTypes][missileFrames] = 
+    {{
+        {391, 28, 6, 14},
+        {399, 28, 6, 14},
+        {407, 28, 6, 14},
+        {415, 28, 6, 14},
+    },
+    {
+        {426, 28, 6, 14},
+        {434, 28, 6, 14},
+        {442, 28, 6, 14},
+        {450, 28, 6, 14},
+    },
+    {
+        {460, 28, 6, 14},
+        {468, 28, 6, 14},
+        {476, 28, 6, 14},
+        {484, 28, 6, 14},
+    }};
+int missileUpdateTime = 20;
+int missileAnimTime = 40;
 int numMissilesFired = 0;
 Uint32 missleRateLo = 500; // 100 ms
-Uint32 missleRateHi = 5000; // 100 ms
+Uint32 missleRateHi = 2000; // 100 ms
 int missileSpeed = 1*ZM;
 
 // Defence barriers
@@ -135,8 +157,12 @@ SDL_Rect barrierPos[numBarriers] =
 unsigned char *barrierPixels[numBarriers];
 
 // Cannon explosion
-Sprite *cexplosion[3];
-SDL_Rect cexplosionSSPos = {367, 75, 36, 16};
+Sprite *cexplosion;
+SDL_Rect cexplosionSSPos[2] = {
+    {329, 75, 32, 16},
+    {369, 75, 32, 16},
+};
+Uint32 cexplosionTimeoutLength = 1000;
 
 SDL_Texture *sheet;
 
@@ -388,15 +414,28 @@ void setupFormation()
     iexplosion->setSpriteZoom(ZM/2);
 
     for (int i=0; i<numMissiles; i++) {
-        missile[i] = new Sprite(&missileSSPos);
+        missile[i] = new Sprite(&missileSSPos[i % missileTypes][0]);
+        missile[i]->addAnimSprite(&missileSSPos[i % missileTypes][1]);
+        missile[i]->addAnimSprite(&missileSSPos[i % missileTypes][2]);
+        missile[i]->addAnimSprite(&missileSSPos[i % missileTypes][3]);
+        
         missile[i]->setPos(0,0);
-        missile[i]->setAnimTime(0);
+        missile[i]->setAnimTime(missileAnimTime);
         missile[i]->setFrameTime(missileUpdateTime);
         missile[i]->setVel(0,missileSpeed);
         missile[i]->setWrap(false);
         missile[i]->setSpriteZoom(ZM/2);
         missile[i]->dead = true;
     }
+
+    cexplosion = new Sprite(&cexplosionSSPos[0]);
+    cexplosion->addAnimSprite(&cexplosionSSPos[1]);
+    cexplosion->setAnimTime(300);
+    cexplosion->setFrameTime(100);
+    cexplosion->setVel(0,0);
+    cexplosion->setWrap(false);
+    cexplosion->setSpriteZoom(ZM/2);
+
 }
 
 void setupBariers() 
@@ -461,15 +500,17 @@ void drawBarriers()
 /* return -1 if not hit any
    or barrier number if it hits
 */
-const int hsw=7; const int hs_leftoff=3;
-const int hsh=6;
+const int hsw=8; const int hs_leftoff=4;
+const int hsh=8; const int hs_topoff=4;
 unsigned char hitshape[hsh][hsw] = {
-    {0,0,0,1,1,1,0},
-    {1,0,1,1,1,0,0},
-    {0,1,1,1,1,1,1},
-    {0,0,1,1,1,0,0},
-    {0,1,1,1,1,0,1},
-    {1,0,1,1,1,1,0},
+    {1,0,0,0,1,0,0,1},
+    {0,0,1,0,0,0,1,0},
+    {0,1,1,1,1,1,1,0},
+    {1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1},
+    {0,1,1,1,1,0,1,0},
+    {0,0,1,0,0,1,0,0},
+    {1,0,0,1,0,0,0,1},
 };
 
 // Check for hit of barrier at position cp
@@ -504,23 +545,16 @@ bool checkHitBarrier(SDL_Rect *cp, int hsYDir)
         x /= ZM; 
         y /= ZM;
         
-        // Code below checks 3 pixels for a hit to avoid problematic missing of single pixels
-        int newx=x;
-        for (int i = x-1; i<=x+1; i++) {
-            unsigned char *ptr = barrierPixels[barrierHit]+(y*bw + i)*4;
-            // ptr [0]=A [1]=B [2]=G [3]=R
-            if (ptr[1]==0 && ptr[2]==0xFF && ptr[3]==0){ // green = hit
-                hit = true;
-                //printf("Barrier %d x,y %d,%d (0x%02X 0x%02X 0x%02X 0x%02X)\n", barrierHit, x,y, ptr[0],ptr[1],ptr[2],ptr[3]);
-                newx = i;
-                break;    
-            }
+        unsigned char *ptr = barrierPixels[barrierHit]+(y*bw + x)*4;
+        if (ptr[1]==0 && ptr[2]>=0x80 && ptr[3]==0){ // green = hit
+            hit = true;
+            //printf("Barrier %d x,y %d,%d (0x%02X 0x%02X 0x%02X 0x%02X)\n", barrierHit, x,y, ptr[0],ptr[1],ptr[2],ptr[3]);
         }
         if (hit) {
-            x = newx;
             for (int j=0; j<=hsh; j++) {
                 for (int i=0; i<hsw; i++) {
-                    int yoff = y - (hsYDir*hsh) + (hsYDir*j) + (hsYDir*1);
+                    //int yoff = y - (hsYDir*hsh) + (hsYDir*j) + (hsYDir*1);
+                    int yoff = y - hs_topoff + j;
                     int xoff = x - hs_leftoff + i;
 
                     if(hitshape[j][i]==1 && xoff < bw && xoff >= 0 && yoff < bh && yoff >=0) {
@@ -600,7 +634,7 @@ void processEvents()
     }
 
     if (!laserCooling || SDL_TICKS_PASSED(SDL_GetTicks(),laserCoolTicks)) {
-        if (currentKeyStates[SDL_SCANCODE_SPACE]) {
+        if (currentKeyStates[SDL_SCANCODE_SPACE] || currentKeyStates[SDL_SCANCODE_LCTRL]) {
             if (!bLaser) {
                 bLaser = true;
                 laser->setPos(cannon->getX()+6*ZM, SCANNON);
@@ -685,6 +719,7 @@ int main( int argc, char* args[] )
 
     Uint32 ticks = 0;
     Uint32 missleTimeoutTick = 0;
+    Uint32 cexplosionTimeout = 0;
 
 	srand(time(0));
 
@@ -732,6 +767,7 @@ int main( int argc, char* args[] )
             // between 5 secs and 30 secs
             nextShip=getNextShipTime(0);
             bSpaceship = false;
+            gGameOver = false;
             //****************************************************************
             // MAIN LOOP
             long loopCtr = 0;
@@ -789,224 +825,244 @@ int main( int argc, char* args[] )
 
                 drawBarriers();
 
-                // Draw cannon
-                cannon->update();
-                cannon->draw();
-
-                // decide on spaceship appearing
-                if (!bSpaceship) {
-                    if (SDL_TICKS_PASSED(SDL_GetTicks(), nextShip)) {
-                        bSpaceship = true;
-                        spaceshipDir = ((rand() % 2)*2) - 1; // 1 or -1
-                        spaceship->setVel(spaceshipDir * spaceshipSpeed, 0);
-                        if (spaceshipDir == 1) {
-                            spaceship->setPos(0, 36*ZM);
-                        } else if (spaceshipDir == -1) {
-                            spaceship->setPos(SWIDTH, 36*ZM);
-                        } else {
-                            printf("error\n");
-                        }
-                        if (gAudioEnabled) {
-                            gSpaceshipChannel = Mix_PlayChannel(-1, sounds[SOUND_UFO_LOWPITCH].sample, 0);
-                        }                        
-                    }
-                }
-                // draw and update spaceship if it has appeared
-                if (bSpaceship) {
-                    spaceship->update();
-                    spaceship->draw();
-                    if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
-                        bSpaceship = false;
-                        nextShip=getNextShipTime(0);
-                    }
-                }
-
-                // Decide on Missile fire
-                {
-
-                    if (SDL_TICKS_PASSED(SDL_GetTicks(), missleTimeoutTick)) {
-                        if (numMissilesFired < numMissiles) {
-                            fireNewMissile();
-                            missleTimeoutTick += (rand() % (missleRateHi - missleRateLo)) + missleRateLo;
-                        }
-
-                    }
-                }
-
-                // Misile update if fired
-                if (numMissilesFired>0) {
-                    for (int m=0; m<numMissiles; m++) {
-                        if (!missile[m]->dead) {
-                            missile[m]->update();
-                            if (missile[m]->getY()>SBOT) {
-                                missile[m]->dead = true;
-                                numMissilesFired--;
-                            }
-                            if (checkHitBarrier(missile[m]->getPos(), -1)) {
-                                missile[m]->dead = true;
-                                numMissilesFired--;
-                            }
-                            // check if it hits the cannon
-                            int mx = missile[m]->getX();
-                            int my = missile[m]->getY();
-                            if (my >= SCANNON+4*ZM && mx >= cannonX && mx < cannonX+cannon->getW()) {
-                                missile[m]->dead = true;
-                                numMissilesFired--;
-                                Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
-                            }
-
-                            if (!missile[m]->dead) { 
-                                missile[m]->draw();
-                            }
+                if (bCannonHit) {
+                    if (SDL_TICKS_PASSED(SDL_GetTicks(), cexplosionTimeout)) {
+                        bCannonHit = false;
+                        cannonsRemaining--;
+                        if (cannonsRemaining < 0) {
+                            gGameOver = true;
                         }
                     }
-                }
-
-                // laser/bullet update if fired
-                if (bLaser) {
-                    laser->draw();
-                    laser->update();
-                    int lx = laser->getX();
-                    int ly = laser->getY();
-                    // check for invaders hit
-                    for (int i=0; i<NI; i++) {
-                        if (inv[i]->dead) continue;
-                        SDL_Rect *ipos = inv[i]->getPos();
-                        if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
-                            // hit
-                            //printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
-                            invVel = inv[i]->getVX();
-                            inv[i]->dead = true;
-                            numInvaders--;
-                            invAnimTime -= invSpeedMultiplier;
-                            if (invVel>0) {
-                                invVel+=0.1;
-                            } else {
-                                invVel-=0.1;
-                            }
-                            if (gAudioEnabled) {
-                                Mix_PlayChannel(-1, sounds[SOUND_INVADERKILLED].sample, 0);
-                            }                            
-                            for (int v=0; v<NI; v++) {
-                                if (inv[v] && !inv[v]->dead) {
-                                    inv[v]->setAnimTime(invAnimTime);
-                                    inv[v]->setFrameTime(invAnimTime);
-                                    inv[v]->setVel(invVel,0);
-                                }
-                            }
-                            bLaser = false;
-                            gScore1 += 7; if (i<11) gScore1 += 8;
-
-                            iexplosion->setPos(ipos->x, ipos->y);
-                            explosionTicks = SDL_GetTicks() + explosionTime;
-                            laserCoolTicks = SDL_GetTicks() + explosionTime;
-                            laserCooling = true;
-                            break;
-                        }
-                    }
-                    // spaceship
-                    if (bSpaceship) {
-                        SDL_Rect *sspos = spaceship->getPos();
-                        if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
-                            // hit
-                            //printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
-                            bSpaceship = false;
-                            nextShip=getNextShipTime(0);
-                            gScore1 += 100;
-                            iexplosion->setPos(lx-6*ZM, ly-8*ZM);
-                            explosionTicks = SDL_GetTicks() + explosionTime;
-                            laserCoolTicks = SDL_GetTicks() + explosionTime;
-                            laserCooling = true;
-                            if (gAudioEnabled) {
-                                Mix_HaltChannel(gSpaceshipChannel);
-                                Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
-                            }
-                        }
-                    }
-
-                    if (checkHitBarrier(laser->getPos(), +1)) {
-                        //printf("Hit barrier\n");
-                        bLaser=false;
-                        laserCoolTicks = SDL_GetTicks() + 200;
-                        laserCooling = true;
-                    }
-
-                    if (laser->getY()<32*ZM) {
-                        bLaser = false;
-                    }
-                } // if laser fired
-
-                // Move Invaders (will be moved VX pixels by update() method below)
-                // Check if invader WILL go beyond screen in next update and change direction if so
-                bool revdir = false;
-                bool hitbottom = false;
-                for (int i=0;i<NI;i++) {
-                    // Check Right Side when Invaders are moving RIGHT
-                    if (inv[i] && !inv[i]->dead) {
-                        if (invVel>0.0)
-                        { 
-                            if ((inv[i]->getX() + inv[i]->getW() + invVel) > SWIDTH) 
-                            {
-                                revdir = true;
-                                //printf("At Right Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
-                                break;
-                            }
-                        } else 
-                        // Check left side when invaders are moving LEFT (-ve Vel)
-                        if (invVel<0.0) 
-                        { 
-                            if ((inv[i]->getX() + invVel) < 0) 
-                            {
-                                revdir = true;
-                                //printf("At Left Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
-                                break;
-                            }
-                        } else {
-                            abort();
-                        }
-                    }
-                }
-                // Hit wall and reversed direction
-                if (revdir) {
-                    invVel = -1.0 * invVel;
+                    cexplosion->setPos(cannon->getX()-3, cannon->getY());
+                    cexplosion->update();
+                    cexplosion->draw();
+                    // Draw invaders
                     for (int i=0;i<NI;i++) {
                         if (inv[i] && !inv[i]->dead) {
-                            inv[i]->revVX();
-                            inv[i]->incY(invVerticalDrop);
-                            if (inv[i]->getY() >= SCANNON) {
-                                hitbottom = true;
-                                //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
-                                //abort();
-                                break;
+                            inv[i]->draw();
+                        }
+                    }
+                } else {
+                    // Draw cannon
+                    cannon->update();
+                    cannon->draw();
+
+                    // decide on spaceship appearing
+                    if (!bSpaceship) {
+                        if (SDL_TICKS_PASSED(SDL_GetTicks(), nextShip)) {
+                            bSpaceship = true;
+                            spaceshipDir = ((rand() % 2)*2) - 1; // 1 or -1
+                            spaceship->setVel(spaceshipDir * spaceshipSpeed, 0);
+                            if (spaceshipDir == 1) {
+                                spaceship->setPos(0, 36*ZM);
+                            } else if (spaceshipDir == -1) {
+                                spaceship->setPos(SWIDTH, 36*ZM);
+                            } else {
+                                printf("error\n");
+                            }
+                            if (gAudioEnabled) {
+                                gSpaceshipChannel = Mix_PlayChannel(-1, sounds[SOUND_UFO_LOWPITCH].sample, 0);
+                            }                        
+                        }
+                    }
+                    // draw and update spaceship if it has appeared
+                    if (bSpaceship) {
+                        spaceship->update();
+                        spaceship->draw();
+                        if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
+                            bSpaceship = false;
+                            nextShip=getNextShipTime(0);
+                        }
+                    }
+
+                    // Decide on Missile fire
+                    {
+
+                        if (SDL_TICKS_PASSED(SDL_GetTicks(), missleTimeoutTick)) {
+                            if (numMissilesFired < numMissiles) {
+                                fireNewMissile();
+                                missleTimeoutTick += (rand() % (missleRateHi - missleRateLo)) + missleRateLo;
+                            }
+
+                        }
+                    }
+
+                    // Misile update if fired
+                    if (numMissilesFired>0) {
+                        for (int m=0; m<numMissiles; m++) {
+                            if (!missile[m]->dead) {
+                                missile[m]->update();
+                                if (missile[m]->getY()>SBOT) {
+                                    missile[m]->dead = true;
+                                    numMissilesFired--;
+                                }
+                                if (checkHitBarrier(missile[m]->getPos(), -1)) {
+                                    missile[m]->dead = true;
+                                    numMissilesFired--;
+                                }
+                                // check if it hits the cannon
+                                int mx = missile[m]->getX();
+                                int my = missile[m]->getY();
+                                if (my >= SCANNON+4*ZM && mx >= cannonX && mx < cannonX+cannon->getW()) {
+                                    missile[m]->dead = true;
+                                    numMissilesFired--;
+                                    Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
+                                    bCannonHit = true;
+                                    cexplosionTimeout = SDL_GetTicks()+cexplosionTimeoutLength;
+                                }
+
+                                if (!missile[m]->dead) { 
+                                    missile[m]->draw();
+                                }
                             }
                         }
                     }
-                }
 
-                // Update and draw invaders
-                for (int i=0;i<NI;i++) {
-                    if (inv[i] && !inv[i]->dead) {
-                        inv[i]->update();
-                        inv[i]->draw();
+                    // laser/bullet update if fired
+                    if (bLaser) {
+                        laser->draw();
+                        laser->update();
+                        int lx = laser->getX();
+                        int ly = laser->getY();
+                        // check for invaders hit
+                        for (int i=0; i<NI; i++) {
+                            if (inv[i]->dead) continue;
+                            SDL_Rect *ipos = inv[i]->getPos();
+                            if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
+                                // hit
+                                //printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
+                                invVel = inv[i]->getVX();
+                                inv[i]->dead = true;
+                                numInvaders--;
+                                invAnimTime -= invSpeedMultiplier;
+                                if (invVel>0) {
+                                    invVel+=0.1;
+                                } else {
+                                    invVel-=0.1;
+                                }
+                                if (gAudioEnabled) {
+                                    Mix_PlayChannel(-1, sounds[SOUND_INVADERKILLED].sample, 0);
+                                }                            
+                                for (int v=0; v<NI; v++) {
+                                    if (inv[v] && !inv[v]->dead) {
+                                        inv[v]->setAnimTime(invAnimTime);
+                                        inv[v]->setFrameTime(invAnimTime);
+                                        inv[v]->setVel(invVel,0);
+                                    }
+                                }
+                                bLaser = false;
+                                gScore1 += 7; if (i<11) gScore1 += 8;
+
+                                iexplosion->setPos(ipos->x, ipos->y);
+                                explosionTicks = SDL_GetTicks() + explosionTime;
+                                laserCoolTicks = SDL_GetTicks() + explosionTime;
+                                laserCooling = true;
+                                break;
+                            }
+                        }
+                        // spaceship
+                        if (bSpaceship) {
+                            SDL_Rect *sspos = spaceship->getPos();
+                            if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
+                                // hit
+                                //printf("Hit SS at %d,%d - laser at %d,%d\n", sspos->x, sspos->y, lx, ly);
+                                bSpaceship = false;
+                                nextShip=getNextShipTime(0);
+                                gScore1 += 100;
+                                iexplosion->setPos(lx-6*ZM, ly-8*ZM);
+                                explosionTicks = SDL_GetTicks() + explosionTime;
+                                laserCoolTicks = SDL_GetTicks() + explosionTime;
+                                laserCooling = true;
+                                if (gAudioEnabled) {
+                                    Mix_HaltChannel(gSpaceshipChannel);
+                                    Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
+                                }
+                            }
+                        }
+
+                        if (checkHitBarrier(laser->getPos(), +1)) {
+                            //printf("Hit barrier\n");
+                            bLaser=false;
+                            laserCoolTicks = SDL_GetTicks() + 200;
+                            laserCooling = true;
+                        }
+
+                        if (laser->getY()<32*ZM) {
+                            bLaser = false;
+                        }
+                    } // if laser fired
+
+                    // Move Invaders (will be moved VX pixels by update() method below)
+                    // Check if invader WILL go beyond screen in next update and change direction if so
+                    bool revdir = false;
+                    bool hitbottom = false;
+                    for (int i=0;i<NI;i++) {
+                        // Check Right Side when Invaders are moving RIGHT
+                        if (inv[i] && !inv[i]->dead) {
+                            if (invVel>0.0)
+                            { 
+                                if ((inv[i]->getX() + inv[i]->getW() + invVel) > SWIDTH) 
+                                {
+                                    revdir = true;
+                                    //printf("At Right Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
+                                    break;
+                                }
+                            } else 
+                            // Check left side when invaders are moving LEFT (-ve Vel)
+                            if (invVel<0.0) 
+                            { 
+                                if ((inv[i]->getX() + invVel) < 0) 
+                                {
+                                    revdir = true;
+                                    //printf("At Left Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
+                                    break;
+                                }
+                            } else {
+                                abort();
+                            }
+                        }
+                    }
+                    // Hit wall and reversed direction
+                    if (revdir) {
+                        invVel = -1.0 * invVel;
+                        for (int i=0;i<NI;i++) {
+                            if (inv[i] && !inv[i]->dead) {
+                                inv[i]->revVX();
+                                inv[i]->incY(invVerticalDrop);
+                                if (inv[i]->getY() >= SCANNON) {
+                                    hitbottom = true;
+                                    //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
+                                    //abort();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Update and draw invaders
+                    for (int i=0;i<NI;i++) {
+                        if (inv[i] && !inv[i]->dead) {
+                            inv[i]->update();
+                            inv[i]->draw();
+                        }
+                    }
+
+                    if (explosionTicks>0) {
+                        iexplosion->draw();
+                        if (SDL_TICKS_PASSED(SDL_GetTicks(),explosionTicks)) {
+                            explosionTicks = 0;
+                        }
+                    }
+
+                    if (numInvaders == 0) {
+                        printf("Next wave ...\n");
+
+                    }
+                    if (hitbottom)
+                    {
+                        gGameOver = true;
                     }
                 }
-
-                if (explosionTicks>0) {
-                    iexplosion->draw();
-                    if (SDL_TICKS_PASSED(SDL_GetTicks(),explosionTicks)) {
-                        explosionTicks = 0;
-                    }
-                }
-
-                if (numInvaders == 0) {
-                    printf("Next wave ...\n");
-
-                }
-                if (hitbottom)
-                {
-                    gGameOver = true;
-                }
-
             //    char fpsstr[20];
             //    sprintf(fpsstr, "%4.2f", cannon->fps);
             //    renderText(fpsstr, 180,SCANNON/ZM+8);
