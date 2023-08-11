@@ -359,6 +359,13 @@ bool Sprite::update() {
 
     pos.x = (int) x;
     pos.y = (int) y;
+
+    if (!bHorizTargetHit && ((vx > 0 && pos.x >= targetX) || (vx < 0 && pos.x <= targetX)) ) {
+        bHorizTargetHit = true;
+    }
+    if (!bVertTargetHit && ((vy > 0 && pos.y >= targetY) || (vy < 0 && pos.y <= targetY)) ) {
+        bVertTargetHit = true;
+    }
     return true;
 }
 
@@ -475,8 +482,19 @@ void Sprite::delayStartTime(Uint32 ms)
     last_update_tick += ms;
 }
 
-void Sprite::setMoveSmooth(int sx, int sy) 
-{
-    smoothToX = sx;
-    smoothToY = sy;
+void Sprite::setHorizTarget(int tx) {
+    targetX = tx;
+    bHorizTargetHit = false;
+}
+void Sprite::setVertTarget(int ty) {
+    targetY = ty;
+    bVertTargetHit = false;
+}
+
+bool Sprite::checkHorizTargetHit() {
+    return bHorizTargetHit;
+}
+bool Sprite::checkVertTargetHit() {
+    //printf("VertTarget %d actual %d vel %f: %s\n", targetY, pos.y, vy, (bVertTargetHit?"Hit":"Miss"));
+    return bVertTargetHit;
 }

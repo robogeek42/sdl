@@ -52,7 +52,6 @@ bool gPause = false;
 
 // Invaders
 Sprite *inv[NI];
-float invVel; // set in setupFormation
 const int invSpeedMultiplier = 16;
 int invAnimTime = 50+invSpeedMultiplier*NI;
 int numInvaders = NI;
@@ -338,7 +337,6 @@ void renderText(const char *text, int X, int Y) {
 void setupFormation() 
 {
     numInvaders = NI;
-    invVel = 3.0*ZM;
     invAnimTime = 50+invSpeedMultiplier*NI;
 
     SDL_Rect sspos1, sspos2;
@@ -376,7 +374,7 @@ void setupFormation()
     {
         inv[i]->setAnimTime(invAnimTime);
         inv[i]->setFrameTime(invAnimTime);
-        inv[i]->setVel(invVel,0);
+        inv[i]->setVel(3.0*ZM,0);
         inv[i]->setWrap(false);
         inv[i]->setSpriteZoom(ZM/2); // Sprites are already 2*size
         // inv[i]->delayStartTime(i*5);
@@ -725,7 +723,7 @@ int main( int argc, char* args[] )
 	bool initialised = false;
 	bool medialoaded = false;
 
-    Uint32 ticks = 0;
+    //Uint32 ticks = 0;
     Uint32 missleTimeoutTick = 0;
     Uint32 cexplosionTimeout = 0;
 
@@ -768,6 +766,9 @@ int main( int argc, char* args[] )
         sheet = Sprite::getSheet();
 
         while (!gQuit) {
+            bool bInvaderDropping = false;
+            float invNewVelAfterTurn = 0;
+
             setupFormation();
             setupBariers();
 
@@ -781,7 +782,7 @@ int main( int argc, char* args[] )
             // long loopCtr = 0;
             // ticks = SDL_GetTicks();
             invaderSoundTimeoutTick = SDL_GetTicks() + invAnimTime;
-            long lastLoopCtr = 0;
+            //long lastLoopCtr = 0;
             while( gQuit == false && gGameOver == false && numInvaders>0)
             { 
                 // loopCtr++;
@@ -833,6 +834,16 @@ int main( int argc, char* args[] )
 
                 drawBarriers();
 
+                // draw and update spaceship if it has appeared
+                if (bSpaceship) {
+                    spaceship->update();
+                    spaceship->draw();
+                    if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
+                        bSpaceship = false;
+                        nextShip=getNextShipTime(0);
+                    }
+                }
+
                 if (bCannonHit) {
                     if (SDL_TICKS_PASSED(SDL_GetTicks(), cexplosionTimeout)) {
                         bCannonHit = false;
@@ -873,15 +884,6 @@ int main( int argc, char* args[] )
                             if (gAudioEnabled) {
                                 gSpaceshipChannel = Mix_PlayChannel(-1, sounds[SOUND_UFO_LOWPITCH].sample, 0);
                             }                        
-                        }
-                    }
-                    // draw and update spaceship if it has appeared
-                    if (bSpaceship) {
-                        spaceship->update();
-                        spaceship->draw();
-                        if (spaceship->getX() > SWIDTH || spaceship->getX() < (0-spaceship->getW())) {
-                            bSpaceship = false;
-                            nextShip=getNextShipTime(0);
                         }
                     }
 
@@ -951,7 +953,7 @@ int main( int argc, char* args[] )
                             if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
                                 // hit
                                 //printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
-                                invVel = inv[i]->getVX();
+                                float invVel = inv[i]->getVX();
                                 inv[i]->dead = true;
                                 numInvaders--;
                                 invAnimTime -= invSpeedMultiplier;
@@ -1019,11 +1021,14 @@ int main( int argc, char* args[] )
                     for (int i=0;i<NI;i++) {
                         // Check Right Side when Invaders are moving RIGHT
                         if (inv[i] && !inv[i]->dead) {
+                            float invVel = inv[i]->getVX();
                             if (invVel>0.0)
                             { 
                                 if ((inv[i]->getX() + inv[i]->getW() + invVel) > SWIDTH) 
                                 {
                                     revdir = true;
+                                    bInvaderDropping = true;
+                                    invNewVelAfterTurn = -1.0 * invVel;
                                     //printf("At Right Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
                                     break;
                                 }
@@ -1034,21 +1039,49 @@ int main( int argc, char* args[] )
                                 if ((inv[i]->getX() + invVel) < 0) 
                                 {
                                     revdir = true;
+                                    bInvaderDropping = true;
+                                    invNewVelAfterTurn = -1.0 * invVel;
                                     //printf("At Left Rev: inv[%d] %d,%d w=%d vel %f\n", i, inv[i]->getX(),inv[i]->getY(),  inv[i]->getW(), invVel);
                                     break;
                                 }
-                            } else {
-                                abort();
+                            }
+                            // if invVel is 0 that means they are in the process of dropping
+                        }
+                    }
+                    // The Invader hit the wall and reversed direction
+                    // so set the velocity down till we move down a line
+                    if (revdir) {
+                        for (int i=0;i<NI;i++) {
+                            if (inv[i] && !inv[i]->dead) {
+                                inv[i]->setVertTarget(inv[i]->getY() + 8*ZM);
+                                inv[i]->setVel(0.0, 1*ZM);
+                                inv[i]->setFrameTime(20);
                             }
                         }
                     }
-                    // Hit wall and reversed direction
-                    if (revdir) {
-                        invVel = -1.0 * invVel;
+
+                    if (bInvaderDropping) {
+                        bool bStillDropping = false;
                         for (int i=0;i<NI;i++) {
                             if (inv[i] && !inv[i]->dead) {
-                                inv[i]->revVX();
-                                inv[i]->incY(invVerticalDrop);
+                                if (!inv[i]->checkVertTargetHit()) {
+                                    bStillDropping = true;
+                                }
+                            }
+                        }
+                        if (!bStillDropping) {
+                            // restore the directional movement
+                            bInvaderDropping = false;
+                            for (int i=0;i<NI;i++) {
+                                if (inv[i] && !inv[i]->dead) {
+                                    inv[i]->setVel(invNewVelAfterTurn, 0);
+                                    inv[i]->setFrameTime(invAnimTime);
+                                }
+                            }
+                        }
+                        // check if any invader hit the bottom
+                        for (int i=0;i<NI;i++) {
+                            if (inv[i] && !inv[i]->dead) {
                                 if (inv[i]->getY() >= SCANNON) {
                                     hitbottom = true;
                                     //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
@@ -1058,7 +1091,6 @@ int main( int argc, char* args[] )
                             }
                         }
                     }
-
                     // Update and draw invaders
                     for (int i=0;i<NI;i++) {
                         if (inv[i] && !inv[i]->dead) {

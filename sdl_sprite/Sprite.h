@@ -60,7 +60,10 @@ public:
     void setAnimTime(Uint32 ms);
     void setFrameTime(Uint32 ms);
     void delayStartTime(Uint32 ms);
-    void setMoveSmooth(int sx, int sy);
+    void setHorizTarget(int tx);
+    void setVertTarget(int ty);
+    bool checkHorizTargetHit();
+    bool checkVertTargetHit();
 
     static bool loadSheet( std::string path );
     static void setRenderer(SDL_Renderer *_renderer);
@@ -132,8 +135,10 @@ private:
     bool lifetimeFade;
     float fadeValue;
 
-    int smoothToX;
-    int smoothToY;
+    int targetX;
+    int targetY;
+    bool bVertTargetHit;
+    bool bHorizTargetHit;
 
     SDL_Texture* loadTexture( std::string path );
     
