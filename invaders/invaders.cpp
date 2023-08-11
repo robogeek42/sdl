@@ -48,7 +48,7 @@ bool gGameOver = false;
 int gScore1 = 0;
 int gScore2 = 0;
 int gHiScore = 0;
-
+bool gPause = false;
 
 // Invaders
 Sprite *inv[NI];
@@ -62,7 +62,6 @@ int invVerticalDrop = 12*ZM;
 // Cannon
 Sprite *cannon;
 SDL_Rect cannonSSPos = {277, 28, 26, 16};
-int cannonX = 0;
 int cannonUpdateTime = 20;
 int cannonSpeed = 2*ZM;
 int cannonsRemaining = 2;
@@ -121,6 +120,7 @@ int numMissilesFired = 0;
 Uint32 missleRateLo = 500; // 100 ms
 Uint32 missleRateHi = 2000; // 100 ms
 int missileSpeed = 1*ZM;
+bool missileDebugPrintHit[numMissiles];
 
 // Defence barriers
 // 22x16 ... grow to 28x16
@@ -383,8 +383,7 @@ void setupFormation()
     }
     
     cannon = new Sprite(&cannonSSPos);
-    cannonX = 108*ZM;
-    cannon->setPos(cannonX, 216*ZM);
+    cannon->setPos(108*ZM, 216*ZM);
     cannon->setAnimTime(0);
     cannon->setFrameTime(cannonUpdateTime);
     cannon->setVel(0,0);
@@ -426,6 +425,8 @@ void setupFormation()
         missile[i]->setWrap(false);
         missile[i]->setSpriteZoom(ZM/2);
         missile[i]->dead = true;
+
+        missileDebugPrintHit[i] = false;
     }
 
     cexplosion = new Sprite(&cexplosionSSPos[0]);
@@ -609,6 +610,11 @@ void processEvents()
                     gQuit = true;
                     break;
                 }
+                case SDLK_p:
+                {
+                    gPause = !gPause;
+                    printf("%s\n", gPause?"Paused":"Play");
+                }
                 default:
                     break;
             }
@@ -644,6 +650,7 @@ void processEvents()
                 }
             }
         }
+
         laserCooling = false;
     }
 
@@ -706,7 +713,8 @@ void fireNewMissile()
             int missileX = invX + 4*ZM;
             int missileY = invY + 8*ZM;
             missile[m]->setPos(missileX, missileY);
-            //printf("Inv[%d] fires missile. Pos Inv = %d,%d Pos Missile = %d,%d\n", invader, invX, invY, missileX, missileY);
+            //printf("Inv[%d] fires missile[%d]. Pos Inv = %d,%d Pos Missile = %d,%d\n", invader, m, invX, invY, missileX, missileY);
+            missileDebugPrintHit[m] = false;
         }
     }
 }
@@ -770,23 +778,23 @@ int main( int argc, char* args[] )
             gGameOver = false;
             //****************************************************************
             // MAIN LOOP
-            long loopCtr = 0;
-            
-            ticks = SDL_GetTicks();
+            // long loopCtr = 0;
+            // ticks = SDL_GetTicks();
             invaderSoundTimeoutTick = SDL_GetTicks() + invAnimTime;
             long lastLoopCtr = 0;
             while( gQuit == false && gGameOver == false && numInvaders>0)
             { 
-                loopCtr++;
-                if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks+1000))
-                {
-                    printf("1 Second %ld loops\n", loopCtr-lastLoopCtr);
-                    ticks = SDL_GetTicks();
-                    lastLoopCtr = loopCtr;
-                }
+                // loopCtr++;
+                // if (SDL_TICKS_PASSED(SDL_GetTicks(), ticks+1000))
+                // {
+                //     printf("1 Second %ld loops\n", loopCtr-lastLoopCtr);
+                //     ticks = SDL_GetTicks();
+                //     lastLoopCtr = loopCtr;
+                // }
 
                 processEvents();
-
+                if (gPause) continue;
+                
                 if (SDL_TICKS_PASSED(SDL_GetTicks(), invaderSoundTimeoutTick)) 
                 {
                     Mix_PlayChannel(-1, sounds[SOUND_FASTINVADER1].sample, 0);
@@ -846,6 +854,8 @@ int main( int argc, char* args[] )
                     // Draw cannon
                     cannon->update();
                     cannon->draw();
+                    // SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                    // SDL_RenderDrawRect(gRenderer, cannon->getPos());
 
                     // decide on spaceship appearing
                     if (!bSpaceship) {
@@ -902,17 +912,27 @@ int main( int argc, char* args[] )
                                 }
                                 // check if it hits the cannon
                                 int mx = missile[m]->getX();
-                                int my = missile[m]->getY();
-                                if (my >= SCANNON+4*ZM && mx >= cannonX && mx < cannonX+cannon->getW()) {
-                                    missile[m]->dead = true;
-                                    numMissilesFired--;
-                                    Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
-                                    bCannonHit = true;
-                                    cexplosionTimeout = SDL_GetTicks()+cexplosionTimeoutLength;
+                                int my = missile[m]->getY() + missile[m]->getH();
+                                if (my >= SCANNON+2*ZM && my < SCANNON+8*ZM) {
+                                    int cannonX = cannon->getX();
+                                    // if (!missileDebugPrintHit[m]) {
+                                    //     missileDebugPrintHit[m] = true;
+                                    //     printf("Missile[%d]. Pos Missile = %d,%d Pos CannonX %d --> %d: %s\n", m, mx, my, cannonX, cannonX+cannon->getW(),
+                                    //         (mx >= cannonX && mx < cannonX+cannon->getW())?"Hit":"Miss");
+                                    // }
+                                    if (mx >= cannonX && mx < cannonX+cannon->getW()) {
+                                        missile[m]->dead = true;
+                                        numMissilesFired--;
+                                        Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
+                                        bCannonHit = true;
+                                        cexplosionTimeout = SDL_GetTicks()+cexplosionTimeoutLength;
+                                    }
                                 }
 
                                 if (!missile[m]->dead) { 
                                     missile[m]->draw();
+                                    // SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                                    // SDL_RenderDrawRect(gRenderer, missile[m]->getPos());
                                 }
                             }
                         }
@@ -920,8 +940,8 @@ int main( int argc, char* args[] )
 
                     // laser/bullet update if fired
                     if (bLaser) {
-                        laser->draw();
                         laser->update();
+                        laser->draw();
                         int lx = laser->getX();
                         int ly = laser->getY();
                         // check for invaders hit
