@@ -5,6 +5,11 @@
 #include <string>
 #include "../sdl_sprite/Sprite.h"
 
+// TODO Make sprites transparent - e.g. missiles
+// TODO Add Game Over screen
+// TODO Add Intro Screen
+// TODO Error logging instead of printf
+
 const int ZM = 4; // Zoom
 
 //Screen dimension constants
@@ -481,7 +486,7 @@ void setupBariers()
             printf("Error locking barrier texture %d\n",b);
             printf("Error: %s\n",SDL_GetError());
         }
-        printf("Barrier %d at %d,%d, %dx%d\n", b, barrierPos[0].x, barrierPos[0].y, barrierPos[0].w, barrierPos[0].h);
+        // printf("Barrier %d at %d,%d, %dx%d\n", b, barrierPos[0].x, barrierPos[0].y, barrierPos[0].w, barrierPos[0].h);
     }
 }
 
@@ -531,6 +536,8 @@ bool checkHitBarrier(SDL_Rect *cp, int hsYDir)
             break;
         }    
     }
+
+    // FIXME - missiles miss on left - and overlap before exploding
 
     if (barrierHit>=0) {
         // check pixel location at end of laser
@@ -798,6 +805,7 @@ int main( int argc, char* args[] )
                 
                 if (SDL_TICKS_PASSED(SDL_GetTicks(), invaderSoundTimeoutTick)) 
                 {
+                    // TODO change invader sample as they get faster
                     Mix_PlayChannel(-1, sounds[SOUND_FASTINVADER1].sample, 0);
                     invaderSoundTimeoutTick = SDL_GetTicks() + invAnimTime;
                 }
@@ -888,6 +896,7 @@ int main( int argc, char* args[] )
                     }
 
                     // Decide on Missile fire
+                    // TODO make missile fire rate increase
                     {
 
                         if (SDL_TICKS_PASSED(SDL_GetTicks(), missleTimeoutTick)) {
@@ -973,6 +982,8 @@ int main( int argc, char* args[] )
                                     }
                                 }
                                 bLaser = false;
+                                // TODO add a proper scoring system
+                                // TODO Add a High Score 
                                 gScore1 += 7; if (i<11) gScore1 += 8;
 
                                 iexplosion->setPos(ipos->x, ipos->y);
@@ -982,7 +993,9 @@ int main( int argc, char* args[] )
                                 break;
                             }
                         }
+
                         // spaceship
+                        // TODO Spaceship: Display Explosion and score
                         if (bSpaceship) {
                             SDL_Rect *sspos = spaceship->getPos();
                             if (lx >= sspos->x && lx <= (sspos->x + sspos->w) && ly >= sspos->y && ly <= sspos->y + sspos->h ) {
@@ -1011,11 +1024,16 @@ int main( int argc, char* args[] )
 
                         if (laser->getY()<32*ZM) {
                             bLaser = false;
+                            // TODO add explosion at top of screen
                         }
-                    } // if laser fired
+                        // TODO Add laser hitting missiles
+
+                    } // endif laser fired
 
                     // Move Invaders (will be moved VX pixels by update() method below)
                     // Check if invader WILL go beyond screen in next update and change direction if so
+                    // FIXME Invaders not moving? there is a bug here somewhere: when I killed some on the right and they went down a level
+                    // suddenly the right speed was still 0 after the downward movment
                     bool revdir = false;
                     bool hitbottom = false;
                     for (int i=0;i<NI;i++) {
