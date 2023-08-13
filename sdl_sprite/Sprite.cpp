@@ -496,5 +496,14 @@ bool Sprite::checkHorizTargetHit() {
 }
 bool Sprite::checkVertTargetHit() {
     //printf("VertTarget %d actual %d vel %f: %s\n", targetY, pos.y, vy, (bVertTargetHit?"Hit":"Miss"));
+    if (dead) {
+        return true;
+    } 
     return bVertTargetHit;
+}
+
+void Sprite::kill() {
+    dead = true;
+    bHorizTargetHit = true;
+    bVertTargetHit = true;
 }

@@ -85,6 +85,8 @@ public:
     void revVY();
     void revVX();
 
+    void kill();
+
     SPRITE_TYPE type;
     bool loaded;
     bool dead;
@@ -92,6 +94,9 @@ public:
     bool wrap;
 
     float fps;
+
+    bool bVertTargetHit;
+    bool bHorizTargetHit;
 
 private:
     static SDL_Renderer *renderer;
@@ -137,8 +142,6 @@ private:
 
     int targetX;
     int targetY;
-    bool bVertTargetHit;
-    bool bHorizTargetHit;
 
     SDL_Texture* loadTexture( std::string path );
     

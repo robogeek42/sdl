@@ -324,6 +324,10 @@ bool loadMedia()
     return success;
 }
 
+bool isInvAlive(int v) {
+    return (inv[v] && !inv[v]->dead);
+}
+
 void renderText(const char *text, int X, int Y) {
     // font sheet is 2 x the basic size (chars are 16x16 instead of 8x8)
     int l = strlen(text); if (l>28) l=28;
@@ -675,7 +679,7 @@ bool getInvaderFireList()
         for (int row = 0; row < NIROWS; row++) 
         {
             int i = col + row * NILINE;
-            if (inv[i] && !inv[i]->dead) {
+            if (isInvAlive(i)) {
                 possInv = i;
             }
         }
@@ -865,7 +869,7 @@ int main( int argc, char* args[] )
                     cexplosion->draw();
                     // Draw invaders
                     for (int i=0;i<NI;i++) {
-                        if (inv[i] && !inv[i]->dead) {
+                        if (isInvAlive(i)) {
                             inv[i]->draw();
                         }
                     }
@@ -914,11 +918,11 @@ int main( int argc, char* args[] )
                             if (!missile[m]->dead) {
                                 missile[m]->update();
                                 if (missile[m]->getY()>SBOT) {
-                                    missile[m]->dead = true;
+                                    missile[m]->kill();
                                     numMissilesFired--;
                                 }
                                 if (checkHitBarrier(missile[m]->getPos(), -1)) {
-                                    missile[m]->dead = true;
+                                    missile[m]->kill();
                                     numMissilesFired--;
                                 }
                                 // check if it hits the cannon
@@ -932,7 +936,7 @@ int main( int argc, char* args[] )
                                     //         (mx >= cannonX && mx < cannonX+cannon->getW())?"Hit":"Miss");
                                     // }
                                     if (mx >= cannonX && mx < cannonX+cannon->getW()) {
-                                        missile[m]->dead = true;
+                                        missile[m]->kill();
                                         numMissilesFired--;
                                         Mix_PlayChannel(-1, sounds[SOUND_EXPLOSION].sample, 0);
                                         bCannonHit = true;
@@ -957,13 +961,13 @@ int main( int argc, char* args[] )
                         int ly = laser->getY();
                         // check for invaders hit
                         for (int i=0; i<NI; i++) {
-                            if (inv[i]->dead) continue;
+                            if (!isInvAlive(i)) continue;
                             SDL_Rect *ipos = inv[i]->getPos();
                             if (lx >= ipos->x && lx <= (ipos->x + ipos->w) && ly >= ipos->y && ly <= ipos->y + ipos->h ) {
                                 // hit
-                                //printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
+                                // printf("Hit Inv %d at %d,%d - laser at %d,%d\n", i, ipos->x, ipos->y, lx, ly);
                                 float invVel = inv[i]->getVX();
-                                inv[i]->dead = true;
+                                inv[i]->kill();
                                 numInvaders--;
                                 invAnimTime -= invSpeedMultiplier;
                                 if (invVel>0) {
@@ -975,7 +979,7 @@ int main( int argc, char* args[] )
                                     Mix_PlayChannel(-1, sounds[SOUND_INVADERKILLED].sample, 0);
                                 }                            
                                 for (int v=0; v<NI; v++) {
-                                    if (inv[v] && !inv[v]->dead) {
+                                    if (isInvAlive(v)) {
                                         inv[v]->setAnimTime(invAnimTime);
                                         inv[v]->setFrameTime(invAnimTime);
                                         inv[v]->setVel(invVel,0);
@@ -1032,13 +1036,11 @@ int main( int argc, char* args[] )
 
                     // Move Invaders (will be moved VX pixels by update() method below)
                     // Check if invader WILL go beyond screen in next update and change direction if so
-                    // FIXME Invaders not moving? there is a bug here somewhere: when I killed some on the right and they went down a level
-                    // suddenly the right speed was still 0 after the downward movment
                     bool revdir = false;
                     bool hitbottom = false;
                     for (int i=0;i<NI;i++) {
                         // Check Right Side when Invaders are moving RIGHT
-                        if (inv[i] && !inv[i]->dead) {
+                        if (isInvAlive(i)) {
                             float invVel = inv[i]->getVX();
                             if (invVel>0.0)
                             { 
@@ -1070,7 +1072,7 @@ int main( int argc, char* args[] )
                     // so set the velocity down till we move down a line
                     if (revdir) {
                         for (int i=0;i<NI;i++) {
-                            if (inv[i] && !inv[i]->dead) {
+                            if (isInvAlive(i)) {
                                 inv[i]->setVertTarget(inv[i]->getY() + 8*ZM);
                                 inv[i]->setVel(0.0, 1*ZM);
                                 inv[i]->setFrameTime(20);
@@ -1079,27 +1081,30 @@ int main( int argc, char* args[] )
                     }
 
                     if (bInvaderDropping) {
-                        bool bStillDropping = false;
+                        bool bStillDropping = true;
                         for (int i=0;i<NI;i++) {
-                            if (inv[i] && !inv[i]->dead) {
-                                if (!inv[i]->checkVertTargetHit()) {
-                                    bStillDropping = true;
+                            if (isInvAlive(i)) {
+                                if (inv[i]->checkVertTargetHit()) {
+                                    bStillDropping = false;
+                                    break;
                                 }
                             }
                         }
                         if (!bStillDropping) {
+                            // printf("Invaders stopped dropping. Restore Vel: %f\n", invNewVelAfterTurn);
                             // restore the directional movement
                             bInvaderDropping = false;
                             for (int i=0;i<NI;i++) {
-                                if (inv[i] && !inv[i]->dead) {
+                                if (isInvAlive(i)) {
                                     inv[i]->setVel(invNewVelAfterTurn, 0);
                                     inv[i]->setFrameTime(invAnimTime);
                                 }
                             }
                         }
+                        
                         // check if any invader hit the bottom
                         for (int i=0;i<NI;i++) {
-                            if (inv[i] && !inv[i]->dead) {
+                            if (isInvAlive(i)) {
                                 if (inv[i]->getY() >= SCANNON) {
                                     hitbottom = true;
                                     //printf("Invader %d at %d hit bottom (%d)\n",i, inv[i]->getY(), SCANNON);
@@ -1111,7 +1116,7 @@ int main( int argc, char* args[] )
                     }
                     // Update and draw invaders
                     for (int i=0;i<NI;i++) {
-                        if (inv[i] && !inv[i]->dead) {
+                        if (isInvAlive(i)) {
                             inv[i]->update();
                             inv[i]->draw();
                         }
