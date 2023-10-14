@@ -67,10 +67,10 @@ Sprite::Sprite(std::string path, int fps) {
     this->last_anim_update_tick = this->last_update_tick;
     this->anim_update_time_ms = 500;
 
+    this->current_frame = 0;
     this->type = SPRITE_TYPE_IMAGE;
     this->sprite[0] = loadTexture(path);
-    this->current_frame = 0;
-    if (this->sprite) {
+    if (this->sprite[0]) {
         this->loaded = true;  
         this->num_frames = 1;
         this->dead = false;  

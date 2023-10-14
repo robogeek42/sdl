@@ -31,9 +31,9 @@ const int IGLEFT = (SWIDTH - IGWIDTH)/2; // Gap to left of invaders at start
 const int NI = NILINE * NIROWS;
 
 // Resources
-std::string gInvadersFontSheetPath = "resources/textures/space_invaders_font.png";
-std::string gSpriteSheetPath = "resources/textures/invaders_sprite_sheet_clean.png";
-std::string gAudioPath = "resources/sounds/";
+std::string gInvadersFontSheetPath = "../resources/textures/space_invaders_font.png";
+std::string gSpriteSheetPath = "../resources/textures/invaders_sprite_sheet_clean.png";
+std::string gAudioPath = "../resources/sounds/";
 
 // Globally used font
 SDL_Texture *gFontSheet;

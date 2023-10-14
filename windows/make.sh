@@ -1,1 +1,0 @@
-g++  -g -Wall  -I ../../SDL2/x86_64-w64-mingw32/include/SDL2  -I ../../SDL2_image/x86_64-w64-mingw32/include/SDL2  -L ../../SDL2/x86_64-w64-mingw32/lib/ -L ../../SDL2_image/x86_64-w64-mingw32/lib/  ../invaders/invaders.cpp ../sdl_sprite/Sprite.cpp   -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -o ../invaders/invaders.exe

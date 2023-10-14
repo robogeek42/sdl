@@ -7,6 +7,9 @@ invaders:
 render_text:
 	$(MAKE) -C render_text
 
+sprite_test2:
+	$(MAKE) -C sdl_sprite_test
+
 clean:
 	$(MAKE) -C invaders clean
 
